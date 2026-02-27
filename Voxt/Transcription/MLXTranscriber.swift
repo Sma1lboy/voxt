@@ -165,6 +165,22 @@ class MLXTranscriber: ObservableObject, TranscriberProtocol {
         }
     }
 
+    /// Triggers an intermediate transcription pass while recording.
+    /// Used to improve responsiveness during short pauses in speech.
+    func forceIntermediateTranscription() {
+        guard isRecording else { return }
+        let revision = sessionRevision
+        let sampleRate = inputSampleRate
+        Task { [weak self] in
+            _ = await self?.runCorrectionPass(
+                stage: .intermediate,
+                revision: revision,
+                explicitSamples: nil,
+                sampleRate: sampleRate
+            )
+        }
+    }
+
     private func runIntermediateCorrectionLoop(revision: Int) async {
         while !Task.isCancelled, revision == sessionRevision, isRecording {
             do {

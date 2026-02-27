@@ -75,7 +75,7 @@ struct HotkeySettingsView: View {
                     .disabled(isRecordingHotkey)
 
                     if isRecordingHotkey {
-                        Text("Press a key combination. Esc cancels.")
+                        Text("Press a key or key combination. Esc cancels.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HotkeyRecorderView(
@@ -114,7 +114,7 @@ struct HotkeySettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Tips")
                         .font(.headline)
-                    Text("Choose a shortcut that you can comfortably hold while speaking.")
+                    Text("You can use a single key (such as fn) or a key combination.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -125,10 +125,6 @@ struct HotkeySettingsView: View {
     }
 
     private func hotkeyConflictMessage(for hotkey: HotkeyPreference.Hotkey) -> String? {
-        if hotkey.modifiers.isEmpty {
-            return "Shortcut should include at least one modifier key."
-        }
-
         return hotkeyConflictRules.first {
             hotkey.keyCode == $0.keyCode && hotkey.modifiers == $0.modifiers
         }?.message

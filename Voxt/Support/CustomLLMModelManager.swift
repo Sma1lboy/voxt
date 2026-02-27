@@ -1,6 +1,7 @@
 import Foundation
 import HuggingFace
 import Combine
+import MLXLMCommon
 
 @MainActor
 class CustomLLMModelManager: ObservableObject {
@@ -64,6 +65,8 @@ class CustomLLMModelManager: ObservableObject {
     private var hubBaseURL: URL
     private var downloadTask: Task<Void, Never>?
     private var sizeTask: Task<Void, Never>?
+    private var inferenceContainer: ModelContainer?
+    private var inferenceModelRepo: String?
 
     init(modelRepo: String, hubBaseURL: URL = URL(string: "https://huggingface.co")!) {
         self.modelRepo = modelRepo
@@ -73,6 +76,52 @@ class CustomLLMModelManager: ObservableObject {
     }
 
     var currentModelRepo: String { modelRepo }
+
+    func enhance(_ rawText: String, systemPrompt: String) async throws -> String {
+        let input = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty else { return rawText }
+
+        guard isModelDownloaded(repo: modelRepo) else {
+            throw NSError(
+                domain: "Voxt.CustomLLM",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "Custom LLM model is not installed locally."]
+            )
+        }
+
+        let container: ModelContainer
+        if let cached = inferenceContainer, inferenceModelRepo == modelRepo {
+            container = cached
+        } else {
+            guard let directory = Self.cacheDirectory(for: modelRepo) else {
+                throw NSError(
+                    domain: "Voxt.CustomLLM",
+                    code: -10,
+                    userInfo: [NSLocalizedDescriptionKey: "Invalid local model path."]
+                )
+            }
+            container = try await loadModelContainer(directory: directory)
+            inferenceContainer = container
+            inferenceModelRepo = modelRepo
+        }
+
+        var session = ChatSession(container, instructions: systemPrompt)
+        session.generateParameters = GenerateParameters(
+            maxTokens: 256,
+            temperature: 0.1,
+            topP: 0.95
+        )
+
+        let prompt = """
+        Clean up this transcription:
+
+        \(input)
+        """
+
+        let response = try await session.respond(to: prompt)
+        let cleaned = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? rawText : cleaned
+    }
 
     func displayTitle(for repo: String) -> String {
         if let option = Self.availableModels.first(where: { $0.id == repo }) {
@@ -84,6 +133,8 @@ class CustomLLMModelManager: ObservableObject {
     func updateModel(repo: String) {
         guard repo != modelRepo else { return }
         modelRepo = repo
+        inferenceContainer = nil
+        inferenceModelRepo = nil
         checkExistingModel()
         fetchRemoteSize()
     }
@@ -250,6 +301,10 @@ class CustomLLMModelManager: ObservableObject {
         }
         if let modelDir = Self.cacheDirectory(for: repo) {
             try? FileManager.default.removeItem(at: modelDir)
+        }
+        if repo == inferenceModelRepo {
+            inferenceContainer = nil
+            inferenceModelRepo = nil
         }
         if repo == modelRepo {
             state = .notDownloaded

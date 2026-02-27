@@ -68,12 +68,34 @@ class HotkeyManager {
         if hotkey.keyCode == HotkeyPreference.modifierOnlyKeyCode {
             guard type == .flagsChanged else { return }
             let comboIsDown = flags.contains(requiredFlags)
+            let isFnOnlyHotkey = requiredFlags == .maskSecondaryFn
+            let isFunctionKeyEvent = keyCode == UInt16(kVK_Function)
+
+            if triggerMode == .tap {
+                // In tap mode, emit on every detected modifier press.
+                // Some keyboards report fn via keyCode without stable flags.
+                if comboIsDown || (isFnOnlyHotkey && isFunctionKeyEvent) {
+                    emitKeyDown()
+                }
+                return
+            }
+
             if comboIsDown && !isKeyDown {
                 isKeyDown = true
                 emitKeyDown()
             } else if !comboIsDown && isKeyDown {
                 isKeyDown = false
                 emitKeyUp()
+            } else if isFnOnlyHotkey && isFunctionKeyEvent {
+                // Fallback for keyboards that don't reliably set maskSecondaryFn.
+                // Use a simple toggle-like behavior on flagsChanged for fn-only hotkeys.
+                if isKeyDown {
+                    isKeyDown = false
+                    emitKeyUp()
+                } else {
+                    isKeyDown = true
+                    emitKeyDown()
+                }
             }
             return
         }

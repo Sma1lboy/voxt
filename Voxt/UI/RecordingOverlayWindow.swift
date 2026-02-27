@@ -9,6 +9,7 @@ class OverlayState: ObservableObject {
     @Published var audioLevel: Float = 0.0
     @Published var transcribedText = ""
     @Published var isEnhancing = false
+    @Published var isCompleting = false
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -35,6 +36,7 @@ class OverlayState: ObservableObject {
         audioLevel = 0
         transcribedText = ""
         isEnhancing = false
+        isCompleting = false
         cancellables.removeAll()
     }
 }
@@ -62,19 +64,25 @@ class RecordingOverlayWindow: NSPanel {
         ignoresMouseEvents = true
     }
 
-    func show(state: OverlayState) {
+    func show(state: OverlayState, position: OverlayPosition) {
         let content = OverlayContent(state: state)
         let hosting = NSHostingView(rootView: content)
         hosting.translatesAutoresizingMaskIntoConstraints = false
         contentView = hosting
         hostingView = hosting
 
-        // Position at bottom-center. The window is tall enough for the pill
-        // to expand downward when text appears (top-center anchor in SwiftUI).
+        // Position at top-center or bottom-center based on settings.
         let size = CGSize(width: 360, height: 140)
+        let fixedEdgeDistance: CGFloat = 30
         if let screen = NSScreen.main {
             let x = screen.visibleFrame.midX - size.width / 2
-            let y = screen.visibleFrame.minY + 30
+            let y: CGFloat
+            switch position {
+            case .bottom:
+                y = screen.visibleFrame.minY + fixedEdgeDistance
+            case .top:
+                y = screen.visibleFrame.maxY - size.height - fixedEdgeDistance
+            }
             setFrame(CGRect(origin: CGPoint(x: x, y: y), size: size), display: false)
         }
 
@@ -103,7 +111,8 @@ private struct OverlayContent: View {
             audioLevel: state.audioLevel,
             isRecording: state.isRecording,
             transcribedText: state.transcribedText,
-            isEnhancing: state.isEnhancing
+            isEnhancing: state.isEnhancing,
+            isCompleting: state.isCompleting
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 8)

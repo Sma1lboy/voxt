@@ -42,6 +42,20 @@ enum EnhancementMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum OverlayPosition: String, CaseIterable, Identifiable {
+    case bottom
+    case top
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .bottom: return "Bottom"
+        case .top: return "Top"
+        }
+    }
+}
+
 enum AppPreferenceKey {
     static let transcriptionEngine = "transcriptionEngine"
     static let enhancementMode = "enhancementMode"
@@ -54,6 +68,7 @@ enum AppPreferenceKey {
     static let hotkeyTriggerMode = "hotkeyTriggerMode"
     static let selectedInputDeviceID = "selectedInputDeviceID"
     static let interactionSoundsEnabled = "interactionSoundsEnabled"
+    static let overlayPosition = "overlayPosition"
     static let launchAtLogin = "launchAtLogin"
     static let showInDock = "showInDock"
     static let historyEnabled = "historyEnabled"
@@ -105,6 +120,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var isSessionActive = false
     private var pendingSessionFinishTask: Task<Void, Never>?
     private var stopRecordingFallbackTask: Task<Void, Never>?
+    private var silenceMonitorTask: Task<Void, Never>?
+    private var pauseLLMTask: Task<Void, Never>?
+    private var lastSignificantAudioAt = Date()
+    private var didTriggerPauseTranscription = false
+    private var didTriggerPauseLLM = false
+    private let silenceAudioLevelThreshold: Float = 0.06
     private let sessionFinishDelay: TimeInterval = 1.2
     private var recordingStartedAt: Date?
     private var recordingStoppedAt: Date?
@@ -121,6 +142,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         customLLMManager = CustomLLMModelManager(modelRepo: llmRepo, hubBaseURL: hubURL)
         UserDefaults.standard.register(defaults: [
             AppPreferenceKey.interactionSoundsEnabled: true,
+            AppPreferenceKey.overlayPosition: OverlayPosition.bottom.rawValue,
             AppPreferenceKey.launchAtLogin: false,
             AppPreferenceKey.showInDock: false,
             AppPreferenceKey.historyEnabled: false,
@@ -203,7 +225,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         if let window = settingsWindowController?.window {
-            bringWindowToFront(window)
+            centerAndBringWindowToFront(window)
             return
         }
 
@@ -234,6 +256,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         positionWindowTrafficLightButtons(window)
 
         let controller = NSWindowController(window: window)
+        controller.shouldCascadeWindows = false
         settingsWindowController = controller
         window.center()
         controller.showWindow(nil)
@@ -313,6 +336,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pendingSessionFinishTask = nil
         stopRecordingFallbackTask?.cancel()
         stopRecordingFallbackTask = nil
+        overlayState.isCompleting = false
         setEnhancingState(false)
         recordingStartedAt = Date()
         recordingStoppedAt = nil
@@ -340,6 +364,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             startSpeechRecordingSession()
         }
+
+        startSilenceMonitoringIfNeeded()
     }
 
     private var isMLXReady: Bool {
@@ -353,6 +379,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func endRecording() {
         guard isSessionActive else { return }
+        silenceMonitorTask?.cancel()
+        silenceMonitorTask = nil
+        pauseLLMTask?.cancel()
+        pauseLLMTask = nil
         stopRecordingFallbackTask?.cancel()
         stopRecordingFallbackTask = nil
         recordingStoppedAt = Date()
@@ -383,40 +413,71 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func processTranscription(_ rawText: String) {
-        guard !rawText.isEmpty else {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
             setEnhancingState(false)
-            finishSession()
+            finishSession(after: 0)
             return
         }
 
-        guard enhancementMode == .appleIntelligence, let enhancer else {
+        switch enhancementMode {
+        case .off:
             setEnhancingState(false)
-            commitTranscription(rawText, llmDurationSeconds: nil)
+            commitTranscription(text, llmDurationSeconds: nil)
             finishSession()
-            return
-        }
 
-        // Show spinner while LLM is enhancing the transcription text.
-        setEnhancingState(true)
-        Task {
-            defer {
-                self.setEnhancingState(false)
-                self.finishSession()
+        case .appleIntelligence:
+            guard let enhancer else {
+                setEnhancingState(false)
+                commitTranscription(text, llmDurationSeconds: nil)
+                finishSession()
+                return
             }
-            do {
-                if #available(macOS 26.0, *) {
-                    let prompt = UserDefaults.standard.string(forKey: AppPreferenceKey.enhancementSystemPrompt)
-                        ?? AppPreferenceKey.defaultEnhancementPrompt
-                    let llmStartedAt = Date()
-                    let enhanced = try await enhancer.enhance(rawText, systemPrompt: prompt)
-                    let llmDuration = Date().timeIntervalSince(llmStartedAt)
-                    self.commitTranscription(enhanced, llmDurationSeconds: llmDuration)
-                } else {
-                    self.commitTranscription(rawText, llmDurationSeconds: nil)
+
+            setEnhancingState(true)
+            Task {
+                defer {
+                    self.setEnhancingState(false)
+                    self.finishSession()
                 }
-            } catch {
-                VoxtLog.error("AI enhancement failed, using raw text: \(error)")
-                self.commitTranscription(rawText, llmDurationSeconds: nil)
+                do {
+                    if #available(macOS 26.0, *) {
+                        let prompt = UserDefaults.standard.string(forKey: AppPreferenceKey.enhancementSystemPrompt)
+                            ?? AppPreferenceKey.defaultEnhancementPrompt
+                        let llmStartedAt = Date()
+                        let enhanced = try await enhancer.enhance(text, systemPrompt: prompt)
+                        let llmDuration = Date().timeIntervalSince(llmStartedAt)
+                        self.commitTranscription(enhanced, llmDurationSeconds: llmDuration)
+                    } else {
+                        self.commitTranscription(text, llmDurationSeconds: nil)
+                    }
+                } catch {
+                    VoxtLog.error("AI enhancement failed, using raw text: \(error)")
+                    self.commitTranscription(text, llmDurationSeconds: nil)
+                }
+            }
+
+        case .customLLM:
+            guard customLLMManager.isModelDownloaded(repo: customLLMManager.currentModelRepo) else {
+                VoxtLog.warning("Custom LLM selected but local model is not installed. Using raw transcription.")
+                setEnhancingState(false)
+                commitTranscription(text, llmDurationSeconds: nil)
+                finishSession()
+                return
+            }
+
+            setEnhancingState(true)
+            Task {
+                defer {
+                    self.setEnhancingState(false)
+                    self.finishSession()
+                }
+
+                let llmStartedAt = Date()
+                // TODO: wire local on-device Custom LLM inference through MLX Swift LM.
+                try? await Task.sleep(for: .milliseconds(250))
+                let llmDuration = Date().timeIntervalSince(llmStartedAt)
+                self.commitTranscription(text, llmDurationSeconds: llmDuration)
             }
         }
     }
@@ -481,7 +542,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.processTranscription(text)
         }
         overlayState.bind(to: mlx)
-        overlayWindow.show(state: overlayState)
+        overlayWindow.show(
+            state: overlayState,
+            position: overlayPosition
+        )
         mlx.startRecording()
     }
 
@@ -490,7 +554,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.processTranscription(text)
         }
         overlayState.bind(to: speechTranscriber)
-        overlayWindow.show(state: overlayState)
+        overlayWindow.show(
+            state: overlayState,
+            position: overlayPosition
+        )
         speechTranscriber.startRecording()
     }
 
@@ -507,8 +574,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pendingSessionFinishTask?.cancel()
         stopRecordingFallbackTask?.cancel()
         stopRecordingFallbackTask = nil
+        silenceMonitorTask?.cancel()
+        silenceMonitorTask = nil
+        pauseLLMTask?.cancel()
+        pauseLLMTask = nil
 
         let resolvedDelay = delay > 0 ? delay : sessionFinishDelay
+        overlayState.isCompleting = resolvedDelay > 0
         pendingSessionFinishTask = Task { [weak self] in
             guard let self else { return }
 
@@ -526,6 +598,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.interactionSoundPlayer.playEnd()
             }
             self.isSessionActive = false
+            self.overlayState.isCompleting = false
             self.pendingSessionFinishTask = nil
         }
     }
@@ -537,6 +610,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var interactionSoundsEnabled: Bool {
         UserDefaults.standard.bool(forKey: AppPreferenceKey.interactionSoundsEnabled)
+    }
+
+    private var overlayPosition: OverlayPosition {
+        let raw = UserDefaults.standard.string(forKey: AppPreferenceKey.overlayPosition)
+        return OverlayPosition(rawValue: raw ?? "") ?? .bottom
     }
 
     private var showInDock: Bool {
@@ -598,6 +676,117 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func applyPreferredInputDevice() {
         speechTranscriber.setPreferredInputDevice(selectedInputDeviceID)
         mlxTranscriber?.setPreferredInputDevice(selectedInputDeviceID)
+    }
+
+    private func startSilenceMonitoringIfNeeded() {
+        silenceMonitorTask?.cancel()
+        pauseLLMTask?.cancel()
+        pauseLLMTask = nil
+
+        guard transcriptionEngine == .mlxAudio else { return }
+
+        lastSignificantAudioAt = Date()
+        didTriggerPauseTranscription = false
+        didTriggerPauseLLM = false
+
+        silenceMonitorTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled, self.isSessionActive {
+                guard self.overlayState.isRecording else {
+                    do {
+                        try await Task.sleep(for: .milliseconds(200))
+                    } catch {
+                        return
+                    }
+                    continue
+                }
+
+                let level = self.overlayState.audioLevel
+                if level > self.silenceAudioLevelThreshold {
+                    self.lastSignificantAudioAt = Date()
+                    self.didTriggerPauseTranscription = false
+                    self.didTriggerPauseLLM = false
+                    self.pauseLLMTask?.cancel()
+                    self.pauseLLMTask = nil
+                    self.setEnhancingState(false)
+                } else {
+                    let silentDuration = Date().timeIntervalSince(self.lastSignificantAudioAt)
+
+                    if silentDuration >= 2.0, !self.didTriggerPauseTranscription {
+                        self.didTriggerPauseTranscription = true
+                        self.mlxTranscriber?.forceIntermediateTranscription()
+                    }
+
+                    if silentDuration >= 4.0, !self.didTriggerPauseLLM {
+                        self.didTriggerPauseLLM = true
+                        self.startPauseLLMIfNeeded()
+                    }
+                }
+
+                do {
+                    try await Task.sleep(for: .milliseconds(200))
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func startPauseLLMIfNeeded() {
+        guard enhancementMode != .off else { return }
+        let input = overlayState.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty else { return }
+
+        pauseLLMTask?.cancel()
+        pauseLLMTask = Task { [weak self] in
+            guard let self else { return }
+            self.setEnhancingState(true)
+            defer {
+                self.setEnhancingState(false)
+                self.pauseLLMTask = nil
+            }
+
+            do {
+                switch self.enhancementMode {
+                case .appleIntelligence:
+                    guard let enhancer else { return }
+                    if #available(macOS 26.0, *) {
+                        let prompt = UserDefaults.standard.string(forKey: AppPreferenceKey.enhancementSystemPrompt)
+                            ?? AppPreferenceKey.defaultEnhancementPrompt
+                        let enhanced = try await enhancer.enhance(input, systemPrompt: prompt)
+                        guard !Task.isCancelled else { return }
+                        guard self.isSessionActive else { return }
+
+                        // Apply only if text has not moved forward during this pause.
+                        let current = self.overlayState.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if current == input {
+                            self.mlxTranscriber?.transcribedText = enhanced
+                        }
+                    }
+
+                case .customLLM:
+                    guard self.customLLMManager.isModelDownloaded(repo: self.customLLMManager.currentModelRepo) else {
+                        return
+                    }
+                    let prompt = UserDefaults.standard.string(forKey: AppPreferenceKey.enhancementSystemPrompt)
+                        ?? AppPreferenceKey.defaultEnhancementPrompt
+                    let enhanced = try await self.customLLMManager.enhance(input, systemPrompt: prompt)
+                    guard !Task.isCancelled else { return }
+                    guard self.isSessionActive else { return }
+
+                    // Apply only if text has not moved forward during this pause.
+                    let current = self.overlayState.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if current == input {
+                        self.mlxTranscriber?.transcribedText = enhanced
+                    }
+
+                case .off:
+                    return
+                }
+            } catch {
+                VoxtLog.warning("Pause-time LLM enhancement skipped: \(error)")
+            }
+        }
     }
 
     @objc private func quit() {

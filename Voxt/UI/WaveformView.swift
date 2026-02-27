@@ -5,6 +5,7 @@ struct WaveformView: View {
     var isRecording: Bool
     var transcribedText: String
     var isEnhancing: Bool = false
+    var isCompleting: Bool = false
 
     // Number of bars in the waveform
     private let barCount = 16
@@ -15,10 +16,10 @@ struct WaveformView: View {
     @State private var spinAngle: Double = 0
 
     /// Whether we have text to show (drives expansion)
-    private var hasText: Bool { !transcribedText.isEmpty && !isEnhancing }
+    private var hasText: Bool { !transcribedText.isEmpty }
 
-    /// Compact when enhancing or no text; expanded when recording with text
-    private var isCompact: Bool { isEnhancing || !hasText }
+    /// Keep expanded layout while text exists to avoid UI jumps during LLM processing.
+    private var isCompact: Bool { !hasText }
 
     private var cornerRadius: CGFloat { isCompact ? 24 : 20 }
     private var textOverflows: Bool { transcribedText.count > 38 }
@@ -27,7 +28,12 @@ struct WaveformView: View {
         VStack(spacing: isCompact ? 0 : 8) {
             HStack(spacing: 10) {
                 // Icon: spinner when enhancing, voxt icon otherwise
-                if isEnhancing {
+                if isCompleting {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .transition(.opacity)
+                } else if isEnhancing {
                     processingSpinner
                 } else {
                     Image("voxt")
@@ -51,7 +57,7 @@ struct WaveformView: View {
             }
             .animation(.easeInOut(duration: 0.25), value: isEnhancing)
 
-            // Live transcription text — hidden during enhancing (compact state)
+            // Keep text visible during LLM processing to avoid layout flicker.
             if hasText {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {

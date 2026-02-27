@@ -4,6 +4,7 @@ import CoreAudio
 struct GeneralSettingsView: View {
     @AppStorage(AppPreferenceKey.selectedInputDeviceID) private var selectedInputDeviceIDRaw = 0
     @AppStorage(AppPreferenceKey.interactionSoundsEnabled) private var interactionSoundsEnabled = true
+    @AppStorage(AppPreferenceKey.overlayPosition) private var overlayPositionRaw = OverlayPosition.bottom.rawValue
     @AppStorage(AppPreferenceKey.launchAtLogin) private var launchAtLogin = false
     @AppStorage(AppPreferenceKey.showInDock) private var showInDock = false
 
@@ -36,6 +37,33 @@ struct GeneralSettingsView: View {
 
                     Toggle("Interaction Sounds", isOn: $interactionSoundsEnabled)
                     Text("Play a short start chime when recording begins and an end chime when transcription completes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+            }
+
+            GroupBox {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Transcription UI")
+                        .font(.headline)
+
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Position")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Picker("Position", selection: $overlayPositionRaw) {
+                            ForEach(OverlayPosition.allCases) { position in
+                                Text(position.title).tag(position.rawValue)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(width: 180, alignment: .trailing)
+                    }
+
+                    Text("Controls where the floating transcription overlay appears on screen.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

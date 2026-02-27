@@ -23,7 +23,7 @@ struct HotkeyPreference {
 
     static let modifierOnlyKeyCode: UInt16 = 0xFFFF
     static let defaultKeyCode: UInt16 = modifierOnlyKeyCode
-    static let defaultModifiers: NSEvent.ModifierFlags = [.control, .option]
+    static let defaultModifiers: NSEvent.ModifierFlags = [.function]
     static let defaultTriggerMode: TriggerMode = .longPress
 
     static func registerDefaults() {
@@ -45,7 +45,7 @@ struct HotkeyPreference {
         let keyCode = UInt16(keyCodeValue)
         let modifiers = NSEvent.ModifierFlags(rawValue: UInt(modifiersValue)).intersection(.hotkeyRelevant)
 
-        if keyCode == modifierOnlyKeyCode && modifiers == [.function] {
+        if keyCode == modifierOnlyKeyCode && modifiers == [.control, .option] {
             save(keyCode: defaultKeyCode, modifiers: defaultModifiers)
         }
     }
