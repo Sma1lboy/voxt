@@ -120,10 +120,9 @@ Chinese documentation: [简体中文](README.zh-CN.md)
 ### Distribution
 
 - Download release directly:
-  - Latest release page: https://github.com/hehehai/voxt/releases/latest
-  - Direct download (`v1.0.0`): https://github.com/hehehai/voxt/releases/download/v1.0.0/Voxt-v1.0.0-macOS.zip
+  - https://github.com/hehehai/voxt/releases/latest
 - Install steps:
-  1. Download and unzip `Voxt-v1.0.0-macOS.zip`.
+  1. Download and unzip the latest `.zip` package from the release page.
   2. Drag `Voxt.app` into `Applications`.
   3. Launch `Voxt` and grant required permissions on first run.
   4. If Gatekeeper blocks launch, right-click `Voxt.app` -> `Open`.
