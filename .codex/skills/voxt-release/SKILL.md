@@ -12,7 +12,7 @@ It is used when the user asks to:
 
 - prepare/release a new version
 - generate release notes from git history
-- run local packaging scripts
+- prepare local release package artifacts
 - update `updates/appcast.json`
 - prepare release commits
 
@@ -92,12 +92,6 @@ cat > updates/appcast.json <<JSON
 JSON
 ```
 
-If your generated manifest already exists at `build/release/artifacts/appcast.json`, use:
-
-```bash
-scripts/release/publish_manifest.sh build/release/artifacts/appcast.json updates/appcast.json
-```
-
 ### Step 4 — Commit
 
 - Include at least:
@@ -150,5 +144,5 @@ gh release upload v1.2.3 \
 
 ## Allowed tools
 
-- `Bash` for `git`, `sed`, `awk`, and release scripts.
-- `Bash` for file viewing/modification commands under `scripts/` and `updates/`.
+- `Bash` for `git`, `sed`, `awk`.
+- `Bash` for file viewing/modification commands under `updates/`.
