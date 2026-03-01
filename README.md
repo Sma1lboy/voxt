@@ -10,18 +10,23 @@
 
 <p align="center">
   <img alt="macOS" src="https://img.shields.io/badge/macOS-26.0%2B-black">
-  <img alt="Swift" src="https://img.shields.io/badge/Swift-5-orange">
+  <a href="https://github.com/hehehai/voxt/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/v/release/hehehai/voxt?label=release&color=brightgreen">
+  </a>
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green">
   <img alt="STT" src="https://img.shields.io/badge/STT-MLX%20Audio%20%7C%20Apple%20Speech-blue">
   <img alt="LLM" src="https://img.shields.io/badge/LLM-Apple%20Intelligence%20%7C%20Custom%20LLM-8A2BE2">
   <img alt="Type" src="https://img.shields.io/badge/App-Menu%20Bar-444">
+</p>
+<p align="center">
+  <a href="README.zh-CN.md">中文导航</a>
 </p>
 
 ## Video
 
 https://github.com/user-attachments/assets/23d42c24-7128-4bdb-bc1d-98509e69d97e
 
-Chinese documentation: [简体中文](README.zh-CN.md)
+[macos install](https://github.com/hehehai/voxt/releases/latest)
 
 ## Features
 
