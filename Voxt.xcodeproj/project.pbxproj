@@ -7,12 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3A1A2B3C4D5E6F708090A0B0C /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A1A2B3C4D5E6F708090A0B0A /* XCTest.framework */; };
 		A1B2C3D4E5F6078901234567 /* MLXAudioCore in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6078901234568 /* MLXAudioCore */; };
 		A1B2C3D4E5F6078901234569 /* MLXAudioSTT in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F607890123456A /* MLXAudioSTT */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		3A1A2B3C4D5E6F708090A0B14 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 31F19CC52F4D76D200E96913 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 31F19CCC2F4D76D200E96913;
+			remoteInfo = Voxt;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		31F19CCD2F4D76D200E96913 /* Voxt.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Voxt.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A1A2B3C4D5E6F708090A0B0A /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
+		3A1A2B3C4D5E6F708090A0B0B /* VoxtTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VoxtTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		694309B92F5280180056FECC /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = Localizable.strings; sourceTree = "<group>"; };
 		694309BB2F5280180056FECC /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = Localizable.strings; sourceTree = "<group>"; };
 		694309BD2F5280180056FECC /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = Localizable.strings; sourceTree = "<group>"; };
@@ -22,6 +35,11 @@
 		31F19CCF2F4D76D200E96913 /* Voxt */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Voxt;
+			sourceTree = "<group>";
+		};
+		3A1A2B3C4D5E6F708090A0B0D /* VoxtTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VoxtTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -36,6 +54,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3A1A2B3C4D5E6F708090A0B0F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3A1A2B3C4D5E6F708090A0B0C /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -43,16 +69,19 @@
 			isa = PBXGroup;
 			children = (
 				31F19CCF2F4D76D200E96913 /* Voxt */,
+				3A1A2B3C4D5E6F708090A0B0D /* VoxtTests */,
 				31F19CCE2F4D76D200E96913 /* Products */,
 				694309AF2F527ECA0056FECC /* en.lproj */,
 				694309B02F527ECB0056FECC /* zh-Hans.lproj */,
 				694309B12F527ECB0056FECC /* ja.lproj */,
+				69F408702F54090100EC2B3D /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
 		31F19CCE2F4D76D200E96913 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				3A1A2B3C4D5E6F708090A0B0B /* VoxtTests.xctest */,
 				31F19CCD2F4D76D200E96913 /* Voxt.app */,
 			);
 			name = Products;
@@ -82,6 +111,14 @@
 			path = ja.lproj;
 			sourceTree = "<group>";
 		};
+		69F408702F54090100EC2B3D /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				3A1A2B3C4D5E6F708090A0B0A /* XCTest.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -109,6 +146,27 @@
 			productReference = 31F19CCD2F4D76D200E96913 /* Voxt.app */;
 			productType = "com.apple.product-type.application";
 		};
+		3A1A2B3C4D5E6F708090A0B0E /* VoxtTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3B1A2B3C4D5E6F708090A0B17 /* Build configuration list for PBXNativeTarget "VoxtTests" */;
+			buildPhases = (
+				3A1A2B3C4D5E6F708090A0B11 /* Sources */,
+				3A1A2B3C4D5E6F708090A0B0F /* Frameworks */,
+				3A1A2B3C4D5E6F708090A0B12 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3A1A2B3C4D5E6F708090A0B13 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				3A1A2B3C4D5E6F708090A0B0D /* VoxtTests */,
+			);
+			name = VoxtTests;
+			productName = VoxtTests;
+			productReference = 3A1A2B3C4D5E6F708090A0B0B /* VoxtTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -120,6 +178,9 @@
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					31F19CCC2F4D76D200E96913 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					3A1A2B3C4D5E6F708090A0B0E = {
 						CreatedOnToolsVersion = 26.2;
 					};
 				};
@@ -144,12 +205,20 @@
 			projectRoot = "";
 			targets = (
 				31F19CCC2F4D76D200E96913 /* Voxt */,
+				3A1A2B3C4D5E6F708090A0B0E /* VoxtTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		31F19CCB2F4D76D200E96913 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3A1A2B3C4D5E6F708090A0B12 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -166,7 +235,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3A1A2B3C4D5E6F708090A0B11 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3A1A2B3C4D5E6F708090A0B13 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 31F19CCC2F4D76D200E96913 /* Voxt */;
+			targetProxy = 3A1A2B3C4D5E6F708090A0B14 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		694309B82F5280180056FECC /* Localizable.strings */ = {
@@ -395,6 +479,142 @@
 			};
 			name = Release;
 		};
+		3B1A2B3C4D5E6F708090A0B15 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = TB2S44TFQS;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_DECLARATION_AFTER_STATEMENT = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = "$(TEST_HOST)/../..";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				PRODUCT_BUNDLE_IDENTIFIER = com.voxt.VoxtTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Voxt.app/Contents/MacOS/Voxt";
+			};
+			name = Debug;
+		};
+		3B1A2B3C4D5E6F708090A0B16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = TB2S44TFQS;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_DECLARATION_AFTER_STATEMENT = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = "$(TEST_HOST)/../..";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.voxt.VoxtTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Voxt.app/Contents/MacOS/Voxt";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -416,6 +636,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		3B1A2B3C4D5E6F708090A0B17 /* Build configuration list for PBXNativeTarget "VoxtTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3B1A2B3C4D5E6F708090A0B15 /* Debug */,
+				3B1A2B3C4D5E6F708090A0B16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -423,8 +652,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Blaizzy/mlx-audio-swift.git";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = revision;
+				revision = b76c81fa3d15600e68323b94d740bb346f3455ef;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

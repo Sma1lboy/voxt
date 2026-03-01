@@ -189,7 +189,10 @@
 "Checking for updates…" = "Checking for updates…";
 "No update information yet." = "No update information yet.";
 "Check Now" = "Check Now";
+"Skip This Version" = "Skip This Version";
 "Cancel Download" = "Cancel Download";
 "Install and Restart" = "Install and Restart";
 "Download Update" = "Download Update";
 "Download progress: %.0f%%" = "Download progress: %.0f%%";
+"Version %@ is skipped." = "Version %@ is skipped.";
+"Skipped version %@." = "Skipped version %@.";

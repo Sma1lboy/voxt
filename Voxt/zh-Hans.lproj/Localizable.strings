@@ -189,7 +189,10 @@
 "Checking for updates…" = "正在检查更新…";
 "No update information yet." = "暂无更新信息。";
 "Check Now" = "立即检查";
+"Skip This Version" = "跳过此版本";
 "Cancel Download" = "取消下载";
 "Install and Restart" = "安装并重启";
 "Download Update" = "下载更新";
 "Download progress: %.0f%%" = "下载进度：%.0f%%";
+"Version %@ is skipped." = "版本 %@ 已被跳过。";
+"Skipped version %@." = "已跳过版本 %@。";

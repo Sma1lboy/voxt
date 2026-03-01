@@ -206,6 +206,12 @@ private struct UpdateSheetView: View {
                     }
                 }
 
+                if appUpdateManager.canSkipLatestVersion {
+                    Button("Skip This Version") {
+                        appUpdateManager.skipCurrentVersion()
+                    }
+                }
+
                 Spacer()
 
                 if appUpdateManager.isDownloading {

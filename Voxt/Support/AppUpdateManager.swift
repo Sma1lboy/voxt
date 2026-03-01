@@ -65,6 +65,19 @@ final class AppUpdateManager: NSObject, ObservableObject, URLSessionDownloadDele
             }
 
             if compareVersions(currentVersion, manifest.version) == .orderedAscending {
+                if skippedVersion == manifest.version {
+                    hasUpdate = false
+                    latestManifest = nil
+                    downloadedPackageURL = nil
+                    if source == .manual {
+                        statusMessage = String(
+                            format: NSLocalizedString("Version %@ is skipped.", comment: ""),
+                            manifest.version
+                        )
+                        showUpdateSheet = true
+                    }
+                    return
+                }
                 latestManifest = manifest
                 hasUpdate = true
                 statusMessage = nil
@@ -129,6 +142,25 @@ final class AppUpdateManager: NSObject, ObservableObject, URLSessionDownloadDele
         latestManifest?.version
     }
 
+    var canSkipLatestVersion: Bool {
+        guard hasUpdate, latestManifest != nil, !isDownloading, downloadedPackageURL == nil else {
+            return false
+        }
+        return true
+    }
+
+    func skipCurrentVersion() {
+        guard let version = latestManifest?.version else { return }
+        UserDefaults.standard.set(version, forKey: AppPreferenceKey.skippedUpdateVersion)
+        hasUpdate = false
+        latestManifest = nil
+        downloadedPackageURL = nil
+        isDownloading = false
+        downloadProgress = 0
+        statusMessage = String(format: NSLocalizedString("Skipped version %@.", comment: ""), version)
+        showUpdateSheet = false
+    }
+
     private var updateManifestURL: URL? {
         guard let raw = UserDefaults.standard.string(forKey: AppPreferenceKey.updateManifestURL),
               let url = URL(string: raw), !raw.isEmpty else {
@@ -139,6 +171,10 @@ final class AppUpdateManager: NSObject, ObservableObject, URLSessionDownloadDele
 
     private var currentVersion: String? {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+    }
+
+    private var skippedVersion: String? {
+        UserDefaults.standard.string(forKey: AppPreferenceKey.skippedUpdateVersion)
     }
 
     private func fetchManifest(from url: URL) async throws -> Manifest {
