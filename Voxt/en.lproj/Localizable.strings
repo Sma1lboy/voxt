@@ -12,6 +12,15 @@
 "Audio" = "Audio";
 "Microphone" = "Microphone";
 "Interaction Sounds" = "Interaction Sounds";
+"Sound Preset" = "Sound Preset";
+"Preview" = "Preview";
+"Try Sound" = "Try Sound";
+"Soft (Pop/Tink)" = "Soft (Pop/Tink)";
+"Ping" = "Ping";
+"Morse" = "Morse";
+"Glass" = "Glass";
+"Funk" = "Funk";
+"Submarine" = "Submarine";
 "Transcription UI" = "Transcription UI";
 "Position" = "Position";
 "Bottom" = "Bottom";

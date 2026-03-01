@@ -12,6 +12,15 @@
 "Audio" = "オーディオ";
 "Microphone" = "マイク";
 "Interaction Sounds" = "操作音";
+"Sound Preset" = "サウンドプリセット";
+"Preview" = "試聴";
+"Try Sound" = "試聴";
+"Soft (Pop/Tink)" = "ソフト（Pop/Tink）";
+"Ping" = "Ping";
+"Morse" = "Morse";
+"Glass" = "Glass";
+"Funk" = "Funk";
+"Submarine" = "Submarine";
 "Transcription UI" = "文字起こし UI";
 "Position" = "位置";
 "Bottom" = "下";

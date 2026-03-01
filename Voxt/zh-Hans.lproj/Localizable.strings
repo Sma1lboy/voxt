@@ -12,6 +12,15 @@
 "Audio" = "音频";
 "Microphone" = "麦克风";
 "Interaction Sounds" = "交互提示音";
+"Sound Preset" = "提示音预设";
+"Preview" = "预览";
+"Try Sound" = "试听";
+"Soft (Pop/Tink)" = "柔和（Pop/Tink）";
+"Ping" = "Ping";
+"Morse" = "Morse";
+"Glass" = "玻璃";
+"Funk" = "Funk";
+"Submarine" = "Submarine";
 "Transcription UI" = "转录界面";
 "Position" = "位置";
 "Bottom" = "底部";

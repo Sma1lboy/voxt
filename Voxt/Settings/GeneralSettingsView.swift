@@ -4,6 +4,7 @@ import CoreAudio
 struct GeneralSettingsView: View {
     @AppStorage(AppPreferenceKey.selectedInputDeviceID) private var selectedInputDeviceIDRaw = 0
     @AppStorage(AppPreferenceKey.interactionSoundsEnabled) private var interactionSoundsEnabled = true
+    @AppStorage(AppPreferenceKey.interactionSoundPreset) private var interactionSoundPresetRaw = InteractionSoundPreset.soft.rawValue
     @AppStorage(AppPreferenceKey.overlayPosition) private var overlayPositionRaw = OverlayPosition.bottom.rawValue
     @AppStorage(AppPreferenceKey.interfaceLanguage) private var interfaceLanguageRaw = AppInterfaceLanguage.system.rawValue
     @AppStorage(AppPreferenceKey.translationTargetLanguage) private var translationTargetLanguageRaw = TranslationTargetLanguage.english.rawValue
@@ -14,6 +15,7 @@ struct GeneralSettingsView: View {
     @State private var inputDevices: [AudioInputDevice] = []
     @State private var launchAtLoginError: String?
     @State private var isSyncingLaunchAtLoginState = false
+    @State private var interactionSoundPlayer = InteractionSoundPlayer()
 
     private var selectedInputDeviceID: AudioDeviceID {
         AudioDeviceID(selectedInputDeviceIDRaw)
@@ -42,6 +44,26 @@ struct GeneralSettingsView: View {
                     Text("Play a short start chime when recording begins and an end chime when transcription completes.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Sound Preset")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Picker("Sound Preset", selection: $interactionSoundPresetRaw) {
+                            ForEach(InteractionSoundPreset.allCases) { preset in
+                                Text(preset.title).tag(preset.rawValue)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .controlSize(.regular)
+                        .labelsHidden()
+                        .frame(width: 220, alignment: .trailing)
+
+                        Button("Try Sound") {
+                            interactionSoundPlayer.playPreview(preset: interactionSoundPreset)
+                        }
+                        .controlSize(.regular)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
@@ -221,5 +243,9 @@ struct GeneralSettingsView: View {
         } else if !selectedExists, let first = inputDevices.first {
             selectedInputDeviceIDRaw = Int(first.id)
         }
+    }
+
+    private var interactionSoundPreset: InteractionSoundPreset {
+        InteractionSoundPreset(rawValue: interactionSoundPresetRaw) ?? .soft
     }
 }

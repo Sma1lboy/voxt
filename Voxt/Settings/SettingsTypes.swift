@@ -131,3 +131,21 @@ enum TranslationTargetLanguage: String, CaseIterable, Identifiable {
         }
     }
 }
+
+enum InteractionSoundPreset: String, CaseIterable, Identifiable {
+    case soft
+    case glass
+    case funk
+    case submarine
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .soft: return String(localized: "Soft (Pop/Tink)")
+        case .glass: return String(localized: "Ping")
+        case .funk: return String(localized: "Morse")
+        case .submarine: return String(localized: "Submarine")
+        }
+    }
+}
