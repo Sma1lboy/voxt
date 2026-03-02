@@ -495,7 +495,7 @@ jobs:
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
           chmod 600 "$KEY_FILE"
 
-          SIGN_UPDATE_BIN="$(find build/DerivedData/SourcePackages/checkouts -path '*/Sparkle/bin/sign_update' -type f | head -n 1 || true)"
+          SIGN_UPDATE_BIN="$(find build/DerivedData/SourcePackages -path '*/Sparkle/bin/sign_update' -type f | head -n 1 || true)"
           if [ -z "$SIGN_UPDATE_BIN" ]; then
             echo "::error::Unable to locate Sparkle sign_update binary from SwiftPM checkout"
             exit 1
@@ -591,6 +591,8 @@ jobs:
               -R "$GITHUB_REPOSITORY"
             if [ "$DRAFT_RELEASE" = "true" ]; then
               gh release edit "$TAG" --draft -R "$GITHUB_REPOSITORY"
+            else
+              gh release edit "$TAG" --draft=false -R "$GITHUB_REPOSITORY"
             fi
             gh release upload "$TAG" "$ZIP_PATH" "$PKG_PATH" "$SHA_PATH" \
               --clobber \
