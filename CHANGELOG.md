@@ -6,6 +6,8 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [1.3.0-beta.1] - 2026-03-04
+
 ### Added
 - App Branch source card now shows an Apps-tab drag hint in the header.
 - Added custom LLM model options:
