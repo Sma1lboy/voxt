@@ -6,6 +6,11 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [1.3.11] - 2026-03-06
+
+### Fixed
+- Fixed Sparkle package installer launch failures (e.g. `code 4005`) by expanding Sparkle entitlements placeholders in the release signing step so `Installer.xpc` can launch with the correct bundle identifier.
+
 ## [1.3.10] - 2026-03-06
 
 - Release v1.3.10.

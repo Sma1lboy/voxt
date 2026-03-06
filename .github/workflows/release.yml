@@ -294,6 +294,24 @@ jobs:
             exit 1
           fi
 
+          APP_BUNDLE_ID="$(
+            /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Contents/Info.plist" 2>/dev/null || true
+          )"
+          if [ -z "${APP_BUNDLE_ID}" ]; then
+            echo "::error::Unable to resolve app bundle identifier from $APP_PATH/Contents/Info.plist"
+            exit 1
+          fi
+
+          SIGNING_ENTITLEMENTS="$(mktemp)"
+          trap 'rm -f "$SIGNING_ENTITLEMENTS"' EXIT
+          sed "s#\\\$(PRODUCT_BUNDLE_IDENTIFIER)#${APP_BUNDLE_ID}#g" Voxt/Voxt.entitlements > "$SIGNING_ENTITLEMENTS"
+          if grep -q '\\$(PRODUCT_BUNDLE_IDENTIFIER)' "$SIGNING_ENTITLEMENTS"; then
+            echo "::error::Failed to expand PRODUCT_BUNDLE_IDENTIFIER in entitlements"
+            echo "Generated entitlements:"
+            cat "$SIGNING_ENTITLEMENTS"
+            exit 1
+          fi
+
           SPARKLE_FRAMEWORK="$APP_PATH/Contents/Frameworks/Sparkle.framework"
           if [ ! -d "$SPARKLE_FRAMEWORK" ]; then
             echo "::error::Sparkle.framework not found at $SPARKLE_FRAMEWORK"
@@ -321,7 +339,7 @@ jobs:
             --force \
             --options runtime \
             --timestamp \
-            --entitlements Voxt/Voxt.entitlements \
+            --entitlements "$SIGNING_ENTITLEMENTS" \
             --sign "$DEVELOPER_ID_APP_IDENTITY" \
             "$APP_PATH"
 

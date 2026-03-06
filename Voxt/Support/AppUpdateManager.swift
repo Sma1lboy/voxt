@@ -19,6 +19,7 @@ final class AppUpdateManager: NSObject, SPUStandardUserDriverDelegate, SPUUpdate
 
     private let stableFeedURLString = "https://voxt.actnow.dev/updates/stable/appcast.xml"
     private let betaFeedURLString = "https://voxt.actnow.dev/updates/beta/appcast.xml"
+    private let betaFeedEnableEnvKey = "VOXT_ENABLE_BETA_UPDATES"
     private var lastCheckSource: CheckSource = .automatic
     private(set) var hasUpdate = false
     private(set) var latestVersion: String?
@@ -36,6 +37,11 @@ final class AppUpdateManager: NSObject, SPUStandardUserDriverDelegate, SPUUpdate
     func checkForUpdates(source: CheckSource) {
         lastCheckSource = source
         if source == .manual {
+            if !isInstallerServiceAvailable() {
+                VoxtLog.error("Sparkle installer services unavailable. Opening manual update page instead of Sparkle installer flow.")
+                openManualUpdatePage()
+                return
+            }
             logInstallerServiceAvailability()
         }
         switch source {
@@ -43,6 +49,10 @@ final class AppUpdateManager: NSObject, SPUStandardUserDriverDelegate, SPUUpdate
             VoxtLog.info("Manual update check triggered via Sparkle.")
             updaterController.checkForUpdates(nil)
         case .automatic:
+            if !isInstallerServiceAvailable() {
+                VoxtLog.warning("Sparkle installer services unavailable. Skipping background update cycle.")
+                return
+            }
             VoxtLog.info("Background update check triggered via Sparkle.")
             updaterController.updater.checkForUpdatesInBackground()
         }
@@ -152,7 +162,12 @@ final class AppUpdateManager: NSObject, SPUStandardUserDriverDelegate, SPUUpdate
         if let channel = ProcessInfo.processInfo.environment["VOXT_UPDATE_CHANNEL"]?.lowercased() {
             switch channel {
             case "beta":
-                return betaFeedURLString
+                if canUseBetaFeed {
+                    return betaFeedURLString
+                }
+
+                VoxtLog.info("VOXT_UPDATE_CHANNEL=beta ignored; using stable appcast unless beta is explicitly enabled.")
+                return stableFeedURLString
             case "stable":
                 return stableFeedURLString
             default:
@@ -160,6 +175,12 @@ final class AppUpdateManager: NSObject, SPUStandardUserDriverDelegate, SPUUpdate
             }
         }
         return stableFeedURLString
+    }
+
+    private var canUseBetaFeed: Bool {
+        let explicitEnable = ProcessInfo.processInfo.environment[betaFeedEnableEnvKey]
+            .map { $0.lowercased() } ?? ""
+        return ["1", "true", "yes", "on"].contains(explicitEnable)
     }
 
     private func handleInstallerFailureIfNeeded(_ error: NSError) {
@@ -185,6 +206,17 @@ final class AppUpdateManager: NSObject, SPUStandardUserDriverDelegate, SPUUpdate
     }
 
     private func logInstallerServiceAvailability() {
+        guard isInstallerServiceAvailable() else {
+            return
+        }
+        let frameworkXPCServicesURL = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices", isDirectory: true)
+        let frameworkEntries = (try? FileManager.default.contentsOfDirectory(atPath: frameworkXPCServicesURL.path)) ?? []
+        let installerEntries = frameworkEntries.filter { $0.localizedCaseInsensitiveContains("Installer") }
+        VoxtLog.info("Sparkle installer check: found installer services \(installerEntries)")
+    }
+
+    private func isInstallerServiceAvailable() -> Bool {
         let appXPCServicesURL = Bundle.main.bundleURL.appendingPathComponent("Contents/XPCServices", isDirectory: true)
         let frameworkXPCServicesURL = Bundle.main.bundleURL
             .appendingPathComponent("Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices", isDirectory: true)
@@ -194,18 +226,24 @@ final class AppUpdateManager: NSObject, SPUStandardUserDriverDelegate, SPUUpdate
 
         let combinedEntries = appEntries + frameworkEntries
         let installerEntries = combinedEntries.filter { $0.localizedCaseInsensitiveContains("Installer") }
-        if installerEntries.isEmpty {
-            VoxtLog.warning(
+        guard !installerEntries.isEmpty else {
+            VoxtLog.error(
                 """
-                Sparkle installer check: installer services not found.
+                Sparkle installer services not found.
                 appXPCServices=\(appXPCServicesURL.path) entries=\(appEntries)
                 frameworkXPCServices=\(frameworkXPCServicesURL.path) entries=\(frameworkEntries)
                 """
             )
-            return
+            return false
         }
+        return true
+    }
 
-        VoxtLog.info("Sparkle installer check: found installer services \(installerEntries)")
+    private func openManualUpdatePage() {
+        let manualUpdateURLString = "https://github.com/hehehai/voxt/releases/latest"
+        if let url = URL(string: manualUpdateURLString) {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 
