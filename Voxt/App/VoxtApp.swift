@@ -93,6 +93,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     let speechTranscriber = SpeechTranscriber()
     var mlxTranscriber: MLXTranscriber?
+    let remoteASRTranscriber = RemoteASRTranscriber()
     let mlxModelManager: MLXModelManager
     let customLLMManager: CustomLLMModelManager
     let historyStore = TranscriptionHistoryStore()
@@ -127,6 +128,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var transcriptionProcessingStartedAt: Date?
     var sessionOutputMode: SessionOutputMode = .transcription
     var isSelectedTextTranslationFlow = false
+    var didCommitSessionOutput = false
     var pendingTranscriptionStartTask: Task<Void, Never>?
     var enhancementContextSnapshot: EnhancementContextSnapshot?
     var lastEnhancementPromptContext: EnhancementPromptContext?
@@ -148,10 +150,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             AppPreferenceKey.overlayPosition: OverlayPosition.bottom.rawValue,
             AppPreferenceKey.interfaceLanguage: AppInterfaceLanguage.system.rawValue,
             AppPreferenceKey.translationTargetLanguage: TranslationTargetLanguage.english.rawValue,
+            AppPreferenceKey.translationModelProvider: TranslationModelProvider.customLLM.rawValue,
             AppPreferenceKey.translateSelectedTextOnTranslationHotkey: true,
             AppPreferenceKey.autoCopyWhenNoFocusedInput: false,
             AppPreferenceKey.appEnhancementEnabled: false,
             AppPreferenceKey.translationSystemPrompt: AppPreferenceKey.defaultTranslationPrompt,
+            AppPreferenceKey.remoteASRSelectedProvider: RemoteASRProvider.openAIWhisper.rawValue,
+            AppPreferenceKey.remoteASRProviderConfigurations: "",
+            AppPreferenceKey.remoteLLMSelectedProvider: RemoteLLMProvider.openAI.rawValue,
+            AppPreferenceKey.remoteLLMProviderConfigurations: "",
+            AppPreferenceKey.translationRemoteLLMProvider: "",
             AppPreferenceKey.launchAtLogin: false,
             AppPreferenceKey.showInDock: false,
             AppPreferenceKey.historyEnabled: false,
@@ -273,74 +281,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setupHotkey() {
+        // Callback contract:
+        // - HotkeyManager only emits normalized events (transcriptionDown/up, translationDown/up).
+        // - AppDelegate owns business decisions (start/stop session, selected-text fast path, mode rules).
         hotkeyManager.onKeyDown = { [weak self] in
             guard let self else { return }
-            VoxtLog.info(
-                "Hotkey callback transcriptionDown. mode=\(HotkeyPreference.loadTriggerMode().rawValue), isSessionActive=\(self.isSessionActive), sessionOutput=\(self.sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(self.pendingTranscriptionStartTask != nil)",
-                verbose: true
-            )
-            switch HotkeyPreference.loadTriggerMode() {
-            case .longPress:
-                guard !self.isSessionActive else { return }
-                self.schedulePendingTranscriptionStart()
-            case .tap:
-                if self.isSessionActive {
-                    guard !self.shouldIgnoreTapStop() else { return }
-                    self.endRecording()
-                } else {
-                    self.beginRecording(outputMode: .transcription)
-                }
-            }
+            self.handleTranscriptionHotkeyDown()
         }
         hotkeyManager.onKeyUp = { [weak self] in
             guard let self else { return }
-            guard HotkeyPreference.loadTriggerMode() == .longPress else { return }
-            VoxtLog.info(
-                "Hotkey callback transcriptionUp. isSessionActive=\(self.isSessionActive), sessionOutput=\(self.sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(self.pendingTranscriptionStartTask != nil)",
-                verbose: true
-            )
-            if self.pendingTranscriptionStartTask != nil {
-                self.cancelPendingTranscriptionStart()
-                return
-            }
-            guard self.isSessionActive, self.sessionOutputMode == .transcription else { return }
-            self.endRecording()
+            self.handleTranscriptionHotkeyUp()
         }
         hotkeyManager.onTranslationKeyDown = { [weak self] in
             guard let self else { return }
-            VoxtLog.info(
-                "Hotkey callback translationDown. mode=\(HotkeyPreference.loadTriggerMode().rawValue), isSessionActive=\(self.isSessionActive), sessionOutput=\(self.sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(self.pendingTranscriptionStartTask != nil)",
-                verbose: true
-            )
-            self.cancelPendingTranscriptionStart()
-            guard !self.isSessionActive else {
-                VoxtLog.info("Translation down ignored: session already active.", verbose: true)
-                return
-            }
-            if self.beginSelectedTextTranslationIfPossible() {
-                VoxtLog.info("Translation down handled by selected-text translation flow.", verbose: true)
-                return
-            }
-            switch HotkeyPreference.loadTriggerMode() {
-            case .longPress:
-                self.beginRecording(outputMode: .translation)
-            case .tap:
-                if self.isSessionActive {
-                } else {
-                    self.beginRecording(outputMode: .translation)
-                }
-            }
+            self.handleTranslationHotkeyDown()
         }
         hotkeyManager.onTranslationKeyUp = { [weak self] in
             guard let self else { return }
-            guard HotkeyPreference.loadTriggerMode() == .longPress else { return }
-            VoxtLog.info(
-                "Hotkey callback translationUp. isSessionActive=\(self.isSessionActive), sessionOutput=\(self.sessionOutputMode == .translation ? "translation" : "transcription"), selectedTextFlow=\(self.isSelectedTextTranslationFlow)",
-                verbose: true
-            )
-            guard !self.isSelectedTextTranslationFlow else { return }
-            guard self.isSessionActive, self.sessionOutputMode == .translation else { return }
-            self.endRecording()
+            self.handleTranslationHotkeyUp()
         }
         hotkeyManager.start()
         VoxtLog.info("Hotkey callbacks configured.")
@@ -350,6 +308,150 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let startedAt = recordingStartedAt else { return false }
         let elapsed = Date().timeIntervalSince(startedAt)
         return elapsed < tapStopGuardInterval
+    }
+
+    private func handleTranscriptionTapDown() {
+        if isSessionActive {
+            // In tap mode, fn is the unified "toggle stop" key.
+            // This intentionally allows ending active translation sessions with fn.
+            guard !shouldIgnoreTapStop() else { return }
+            endRecording()
+            return
+        }
+        beginRecording(outputMode: .transcription)
+    }
+
+    private func handleTranslationTapDown() {
+        if isSessionActive {
+            guard sessionOutputMode == .translation else {
+                VoxtLog.info("Tap translation down ignored: active session belongs to transcription.", verbose: true)
+                return
+            }
+            guard !shouldIgnoreTapStop() else { return }
+            endRecording()
+            return
+        }
+        beginRecording(outputMode: .translation)
+    }
+
+    private func handleTranscriptionHotkeyDown() {
+        let triggerMode = HotkeyPreference.loadTriggerMode()
+        VoxtLog.info(
+            "Hotkey callback transcriptionDown. mode=\(triggerMode.rawValue), isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(pendingTranscriptionStartTask != nil)",
+            verbose: true
+        )
+        let actions = HotkeyActionResolver.resolveTranscriptionDown(
+            state: HotkeyActionResolver.State(
+                triggerMode: triggerMode,
+                isSessionActive: isSessionActive,
+                sessionOutputMode: sessionOutputMode,
+                hasPendingTranscriptionStart: pendingTranscriptionStartTask != nil,
+                isSelectedTextTranslationFlow: isSelectedTextTranslationFlow,
+                canStopTapSession: !shouldIgnoreTapStop()
+            )
+        )
+        for action in actions {
+            performHotkeyAction(action)
+        }
+    }
+
+    private func handleTranscriptionHotkeyUp() {
+        let triggerMode = HotkeyPreference.loadTriggerMode()
+        guard triggerMode == .longPress else { return }
+        VoxtLog.info(
+            "Hotkey callback transcriptionUp. isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(pendingTranscriptionStartTask != nil)",
+            verbose: true
+        )
+        let actions = HotkeyActionResolver.resolveTranscriptionUp(
+            state: HotkeyActionResolver.State(
+                triggerMode: triggerMode,
+                isSessionActive: isSessionActive,
+                sessionOutputMode: sessionOutputMode,
+                hasPendingTranscriptionStart: pendingTranscriptionStartTask != nil,
+                isSelectedTextTranslationFlow: isSelectedTextTranslationFlow,
+                canStopTapSession: !shouldIgnoreTapStop()
+            )
+        )
+        for action in actions {
+            performHotkeyAction(action)
+        }
+    }
+
+    private func handleTranslationHotkeyDown() {
+        let triggerMode = HotkeyPreference.loadTriggerMode()
+        VoxtLog.info(
+            "Hotkey callback translationDown. mode=\(triggerMode.rawValue), isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(pendingTranscriptionStartTask != nil)",
+            verbose: true
+        )
+        let actions = HotkeyActionResolver.resolveTranslationDown(
+            state: HotkeyActionResolver.State(
+                triggerMode: triggerMode,
+                isSessionActive: isSessionActive,
+                sessionOutputMode: sessionOutputMode,
+                hasPendingTranscriptionStart: pendingTranscriptionStartTask != nil,
+                isSelectedTextTranslationFlow: isSelectedTextTranslationFlow,
+                canStopTapSession: !shouldIgnoreTapStop()
+            )
+        )
+        for action in actions where action == .cancelPendingTranscriptionStart {
+            performHotkeyAction(action)
+        }
+        guard !isSessionActive else {
+            VoxtLog.info("Translation down ignored: session already active.", verbose: true)
+            return
+        }
+
+        // Highest priority branch:
+        // if user has selected text, fn+shift should run selected-text translation directly,
+        // without opening microphone recording flow.
+        if beginSelectedTextTranslationIfPossible() {
+            VoxtLog.info("Translation down handled by selected-text translation flow.", verbose: true)
+            return
+        }
+
+        for action in actions {
+            guard action != .cancelPendingTranscriptionStart else { continue }
+            performHotkeyAction(action)
+        }
+    }
+
+    private func handleTranslationHotkeyUp() {
+        let triggerMode = HotkeyPreference.loadTriggerMode()
+        guard triggerMode == .longPress else { return }
+        VoxtLog.info(
+            "Hotkey callback translationUp. isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputMode == .translation ? "translation" : "transcription"), selectedTextFlow=\(isSelectedTextTranslationFlow)",
+            verbose: true
+        )
+        let actions = HotkeyActionResolver.resolveTranslationUp(
+            state: HotkeyActionResolver.State(
+                triggerMode: triggerMode,
+                isSessionActive: isSessionActive,
+                sessionOutputMode: sessionOutputMode,
+                hasPendingTranscriptionStart: pendingTranscriptionStartTask != nil,
+                isSelectedTextTranslationFlow: isSelectedTextTranslationFlow,
+                canStopTapSession: !shouldIgnoreTapStop()
+            )
+        )
+        for action in actions {
+            performHotkeyAction(action)
+        }
+    }
+
+    private func performHotkeyAction(_ action: HotkeyActionResolver.Action) {
+        switch action {
+        case .ignore:
+            return
+        case .stopRecording:
+            endRecording()
+        case .startTranscription:
+            beginRecording(outputMode: .transcription)
+        case .startTranslation:
+            beginRecording(outputMode: .translation)
+        case .scheduleTranscriptionStart:
+            schedulePendingTranscriptionStart()
+        case .cancelPendingTranscriptionStart:
+            cancelPendingTranscriptionStart()
+        }
     }
 
     private func schedulePendingTranscriptionStart() {
