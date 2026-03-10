@@ -6,6 +6,27 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [1.4.7] - 2026-03-10
+
+### Added
+- Added localized prompt template variable chips with copy interaction and hover tips in settings.
+- Added app branch prompt templating support with `{{RAW_TRANSCRIPTION}}`.
+- Added LLM debug log output for prompt input and model output content.
+- Added shortcut preset support for `fn` and right-side `Command` combinations.
+- Added optional left/right modifier distinction for shortcuts, including recording and display support.
+
+### Changed
+- Updated app branch prompt delivery so matched branch prompts can be sent as direct user messages.
+- Refined prompt variable help UI with system popover tooltip behavior and improved hover persistence.
+- Improved shortcut settings UI with preset selection and left/right modifier controls.
+
+### Fixed
+- Fixed remote realtime ASR start/stop races that could desync hotkey state and recording UI.
+- Fixed proxy-disabled networking so WebSocket traffic no longer relies on legacy proxy behavior alone.
+- Fixed accessibility permission prompting/registration flow so installed apps register more reliably in macOS Accessibility settings.
+- Fixed hotkey matching so right-side modifier shortcuts no longer trigger from left-side keys when left/right distinction is enabled.
+- Fixed app branch prompt handling and prompt editor guidance to align with current enhancement behavior.
+
 ## [1.4.2] - 2026-03-09
 
 ### Added
