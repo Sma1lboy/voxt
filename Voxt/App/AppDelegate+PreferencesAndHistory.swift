@@ -200,6 +200,7 @@ extension AppDelegate {
             transcriptionModel: transcriptionModel,
             enhancementMode: enhancementMode.title,
             enhancementModel: enhancementModel,
+            kind: resolvedHistoryKind(),
             isTranslation: sessionOutputMode == .translation,
             audioDurationSeconds: audioDuration,
             transcriptionProcessingDurationSeconds: processingDuration,
@@ -217,6 +218,17 @@ extension AppDelegate {
 
         lastEnhancementPromptContext = nil
         transcriptionResultReceivedAt = nil
+    }
+
+    private func resolvedHistoryKind() -> TranscriptionHistoryKind {
+        switch sessionOutputMode {
+        case .transcription:
+            return .normal
+        case .translation:
+            return .translation
+        case .rewrite:
+            return .rewrite
+        }
     }
 
     private func resolvedDuration(from start: Date?, to end: Date?) -> TimeInterval? {

@@ -183,7 +183,7 @@ private struct ReportSummary {
         totalDictationSeconds = entries.reduce(0) { $0 + ($1.audioDurationSeconds ?? 0) }
         totalCharacters = entries.reduce(0) { $0 + $1.text.count }
         totalTranslationCharacters = entries
-            .filter(\.isTranslation)
+            .filter { $0.kind == .translation }
             .reduce(0) { $0 + $1.text.count }
 
         if totalDictationSeconds > 0 {

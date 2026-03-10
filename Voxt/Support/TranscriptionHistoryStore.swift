@@ -1,6 +1,12 @@
 import Foundation
 import Combine
 
+enum TranscriptionHistoryKind: String, Codable {
+    case normal
+    case translation
+    case rewrite
+}
+
 struct TranscriptionHistoryEntry: Identifiable, Codable, Hashable {
     let id: UUID
     let text: String
@@ -9,6 +15,7 @@ struct TranscriptionHistoryEntry: Identifiable, Codable, Hashable {
     let transcriptionModel: String
     let enhancementMode: String
     let enhancementModel: String
+    let kind: TranscriptionHistoryKind
     let isTranslation: Bool
     let audioDurationSeconds: TimeInterval?
     let transcriptionProcessingDurationSeconds: TimeInterval?
@@ -31,6 +38,7 @@ struct TranscriptionHistoryEntry: Identifiable, Codable, Hashable {
         case transcriptionModel
         case enhancementMode
         case enhancementModel
+        case kind
         case isTranslation
         case audioDurationSeconds
         case transcriptionProcessingDurationSeconds
@@ -54,6 +62,7 @@ struct TranscriptionHistoryEntry: Identifiable, Codable, Hashable {
         transcriptionModel: String,
         enhancementMode: String,
         enhancementModel: String,
+        kind: TranscriptionHistoryKind,
         isTranslation: Bool,
         audioDurationSeconds: TimeInterval?,
         transcriptionProcessingDurationSeconds: TimeInterval?,
@@ -75,6 +84,7 @@ struct TranscriptionHistoryEntry: Identifiable, Codable, Hashable {
         self.transcriptionModel = transcriptionModel
         self.enhancementMode = enhancementMode
         self.enhancementModel = enhancementModel
+        self.kind = kind
         self.isTranslation = isTranslation
         self.audioDurationSeconds = audioDurationSeconds
         self.transcriptionProcessingDurationSeconds = transcriptionProcessingDurationSeconds
@@ -99,7 +109,10 @@ struct TranscriptionHistoryEntry: Identifiable, Codable, Hashable {
         transcriptionModel = try container.decode(String.self, forKey: .transcriptionModel)
         enhancementMode = try container.decode(String.self, forKey: .enhancementMode)
         enhancementModel = try container.decode(String.self, forKey: .enhancementModel)
-        isTranslation = try container.decodeIfPresent(Bool.self, forKey: .isTranslation) ?? false
+        let decodedIsTranslation = try container.decodeIfPresent(Bool.self, forKey: .isTranslation) ?? false
+        isTranslation = decodedIsTranslation
+        kind = try container.decodeIfPresent(TranscriptionHistoryKind.self, forKey: .kind)
+            ?? (decodedIsTranslation ? .translation : .normal)
         audioDurationSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .audioDurationSeconds)
         transcriptionProcessingDurationSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .transcriptionProcessingDurationSeconds)
         llmDurationSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .llmDurationSeconds)
@@ -184,6 +197,7 @@ final class TranscriptionHistoryStore: ObservableObject {
         transcriptionModel: String,
         enhancementMode: String,
         enhancementModel: String,
+        kind: TranscriptionHistoryKind,
         isTranslation: Bool,
         audioDurationSeconds: TimeInterval?,
         transcriptionProcessingDurationSeconds: TimeInterval?,
@@ -209,6 +223,7 @@ final class TranscriptionHistoryStore: ObservableObject {
             transcriptionModel: transcriptionModel,
             enhancementMode: enhancementMode,
             enhancementModel: enhancementModel,
+            kind: kind,
             isTranslation: isTranslation,
             audioDurationSeconds: audioDurationSeconds,
             transcriptionProcessingDurationSeconds: transcriptionProcessingDurationSeconds,

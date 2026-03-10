@@ -281,8 +281,10 @@ private struct HistoryRow: View {
 
     private var historyBadge: some View {
         Group {
-            if entry.isTranslation {
+            if entry.kind == .translation {
                 Text("Translation")
+            } else if entry.kind == .rewrite {
+                Text("Rewrite")
             } else {
                 Text("Normal")
             }
@@ -292,9 +294,20 @@ private struct HistoryRow: View {
         .padding(.vertical, 2)
         .background(
             Capsule(style: .continuous)
-                .fill(entry.isTranslation ? Color.blue.opacity(0.16) : Color.gray.opacity(0.16))
+                .fill(historyBadgeColor.opacity(0.16))
         )
-        .foregroundStyle(entry.isTranslation ? Color.blue : Color.secondary)
+        .foregroundStyle(historyBadgeColor)
+    }
+
+    private var historyBadgeColor: Color {
+        switch entry.kind {
+        case .normal:
+            return .secondary
+        case .translation:
+            return .blue
+        case .rewrite:
+            return .orange
+        }
     }
 
     private func formattedDuration(_ seconds: TimeInterval?) -> String? {

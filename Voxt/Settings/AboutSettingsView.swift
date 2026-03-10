@@ -57,18 +57,6 @@ struct AboutSettingsView: View {
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("License")
-                        .font(.headline)
-                    Text("Apache License 2.0")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-            }
-
-            GroupBox {
-                VStack(alignment: .leading, spacing: 8) {
                     Text("Project")
                         .font(.headline)
                     Link("github.com/hehehai/voxt", destination: URL(string: "https://github.com/hehehai/voxt")!)
