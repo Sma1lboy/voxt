@@ -16,6 +16,8 @@ struct ModelSettingsView: View {
     @AppStorage(AppPreferenceKey.rewriteModelProvider) private var rewriteModelProviderRaw = RewriteModelProvider.customLLM.rawValue
     @AppStorage(AppPreferenceKey.remoteASRSelectedProvider) private var remoteASRSelectedProviderRaw = RemoteASRProvider.openAIWhisper.rawValue
     @AppStorage(AppPreferenceKey.remoteASRProviderConfigurations) private var remoteASRProviderConfigurationsRaw = ""
+    @AppStorage(AppPreferenceKey.asrHintSettings) private var asrHintSettingsRaw = ASRHintSettingsStore.defaultStoredValue()
+    @AppStorage(AppPreferenceKey.userMainLanguageCodes) private var userMainLanguageCodesRaw = UserMainLanguageOption.defaultStoredSelectionValue
     @AppStorage(AppPreferenceKey.remoteLLMSelectedProvider) private var remoteLLMSelectedProviderRaw = RemoteLLMProvider.openAI.rawValue
     @AppStorage(AppPreferenceKey.remoteLLMProviderConfigurations) private var remoteLLMProviderConfigurationsRaw = ""
     @AppStorage(AppPreferenceKey.translationRemoteLLMProvider) private var translationRemoteLLMProviderRaw = ""
@@ -29,6 +31,7 @@ struct ModelSettingsView: View {
     @State private var showMirrorInfo = false
     @State private var editingASRProvider: RemoteASRProvider?
     @State private var editingLLMProvider: RemoteLLMProvider?
+    @State private var isASRHintSettingsPresented = false
     private let modelStateRefreshTimer = Timer.publish(every: 2.5, on: .main, in: .common).autoconnect()
 
     private var selectedEngine: TranscriptionEngine {
@@ -63,6 +66,14 @@ struct ModelSettingsView: View {
         RemoteModelConfigurationStore.loadConfigurations(from: remoteLLMProviderConfigurationsRaw)
     }
 
+    private var selectedASRHintTarget: ASRHintTarget {
+        ASRHintTarget.from(engine: selectedEngine, remoteProvider: selectedRemoteASRProvider)
+    }
+
+    private var selectedUserLanguageCodes: [String] {
+        UserMainLanguageOption.storedSelection(from: userMainLanguageCodesRaw)
+    }
+
     private var appleIntelligenceAvailable: Bool {
         if #available(macOS 26.0, *) {
             return TextEnhancer.isAvailable
@@ -77,14 +88,24 @@ struct ModelSettingsView: View {
                     Text("Engine")
                         .font(.headline)
 
-                    Picker("Engine", selection: $engineRaw) {
-                        ForEach(TranscriptionEngine.allCases) { engine in
-                            Text(engine.titleKey).tag(engine.rawValue)
+                    HStack(alignment: .center, spacing: 12) {
+                        Picker("Engine", selection: $engineRaw) {
+                            ForEach(TranscriptionEngine.allCases) { engine in
+                                Text(engine.titleKey).tag(engine.rawValue)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(maxWidth: 240, alignment: .leading)
+
+                        Spacer(minLength: 0)
+
+                        Button("Engine Hint Settings") {
+                            isASRHintSettingsPresented = true
+                        }
+                        .controlSize(.regular)
+                        .disabled(selectedEngine == .dictation)
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .frame(maxWidth: 240, alignment: .leading)
 
                     Text(selectedEngine.description)
                         .font(.caption)
@@ -172,8 +193,12 @@ struct ModelSettingsView: View {
                             .foregroundStyle(.orange)
                     }
 
-                    Text("Translation Prompt")
-                        .font(.subheadline.weight(.medium))
+                    promptSectionHeader(
+                        "Translation Prompt",
+                        isResetDisabled: translationPrompt == AppPreferenceKey.defaultTranslationPrompt
+                    ) {
+                        translationPrompt = AppPreferenceKey.defaultTranslationPrompt
+                    }
                     PromptEditorView(text: $translationPrompt)
                     PromptTemplateVariablesView(
                         variables: [
@@ -182,20 +207,16 @@ struct ModelSettingsView: View {
                                 tipKey: "Template tip {{TARGET_LANGUAGE}}"
                             ),
                             PromptTemplateVariableDescriptor(
+                                token: "{{USER_MAIN_LANGUAGE}}",
+                                tipKey: "Template tip {{USER_MAIN_LANGUAGE}}"
+                            ),
+                            PromptTemplateVariableDescriptor(
                                 token: "{{SOURCE_TEXT}}",
                                 tipKey: "Template tip {{SOURCE_TEXT}}"
                             )
                         ]
                     )
 
-                    HStack {
-                        Button("Reset to Default") {
-                            translationPrompt = AppPreferenceKey.defaultTranslationPrompt
-                        }
-                        .controlSize(.small)
-                        .disabled(translationPrompt == AppPreferenceKey.defaultTranslationPrompt)
-                        Spacer()
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
@@ -240,8 +261,12 @@ struct ModelSettingsView: View {
                             .foregroundStyle(.orange)
                     }
 
-                    Text("Content Rewrite Prompt")
-                        .font(.subheadline.weight(.medium))
+                    promptSectionHeader(
+                        "Content Rewrite Prompt",
+                        isResetDisabled: rewritePrompt == AppPreferenceKey.defaultRewritePrompt
+                    ) {
+                        rewritePrompt = AppPreferenceKey.defaultRewritePrompt
+                    }
                     PromptEditorView(text: $rewritePrompt)
                     PromptTemplateVariablesView(
                         variables: [
@@ -256,14 +281,6 @@ struct ModelSettingsView: View {
                         ]
                     )
 
-                    HStack {
-                        Button("Reset to Default") {
-                            rewritePrompt = AppPreferenceKey.defaultRewritePrompt
-                        }
-                        .controlSize(.small)
-                        .disabled(rewritePrompt == AppPreferenceKey.defaultRewritePrompt)
-                        Spacer()
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
@@ -381,6 +398,16 @@ struct ModelSettingsView: View {
                 saveRemoteLLMConfiguration(updated)
             }
         }
+        .sheet(isPresented: $isASRHintSettingsPresented) {
+            ASRHintSettingsSheet(
+                target: selectedASRHintTarget,
+                userLanguageCodes: selectedUserLanguageCodes,
+                mlxModelRepo: selectedEngine == .mlxAudio ? modelRepo : nil,
+                initialSettings: resolvedASRHintSettings(for: selectedASRHintTarget)
+            ) { updated in
+                saveASRHintSettings(updated, for: selectedASRHintTarget)
+            }
+        }
         .id(interfaceLanguageRaw)
     }
 
@@ -461,8 +488,12 @@ struct ModelSettingsView: View {
         Divider()
 
         if appleIntelligenceAvailable {
-            Text("System Prompt")
-                .font(.subheadline.weight(.medium))
+            promptSectionHeader(
+                "System Prompt",
+                isResetDisabled: systemPrompt == AppPreferenceKey.defaultEnhancementPrompt
+            ) {
+                systemPrompt = AppPreferenceKey.defaultEnhancementPrompt
+            }
 
             PromptEditorView(text: $systemPrompt)
             PromptTemplateVariablesView(
@@ -470,6 +501,10 @@ struct ModelSettingsView: View {
                     PromptTemplateVariableDescriptor(
                         token: "{{RAW_TRANSCRIPTION}}",
                         tipKey: "Template tip {{RAW_TRANSCRIPTION}}"
+                    ),
+                    PromptTemplateVariableDescriptor(
+                        token: "{{USER_MAIN_LANGUAGE}}",
+                        tipKey: "Template tip {{USER_MAIN_LANGUAGE}}"
                     )
                 ]
             )
@@ -478,12 +513,6 @@ struct ModelSettingsView: View {
                 Text("Customise how Apple Intelligence enhances your transcriptions.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Spacer()
-                Button("Reset to Default") {
-                    systemPrompt = AppPreferenceKey.defaultEnhancementPrompt
-                }
-                .controlSize(.small)
-                .disabled(systemPrompt == AppPreferenceKey.defaultEnhancementPrompt)
             }
         } else {
             Text("Apple Intelligence is not available on this Mac, so system prompt enhancement cannot be used.")
@@ -496,8 +525,12 @@ struct ModelSettingsView: View {
     private var customLLMSection: some View {
         Divider()
 
-        Text("System Prompt")
-            .font(.subheadline.weight(.medium))
+        promptSectionHeader(
+            "System Prompt",
+            isResetDisabled: systemPrompt == AppPreferenceKey.defaultEnhancementPrompt
+        ) {
+            systemPrompt = AppPreferenceKey.defaultEnhancementPrompt
+        }
 
         PromptEditorView(text: $systemPrompt)
         PromptTemplateVariablesView(
@@ -505,6 +538,10 @@ struct ModelSettingsView: View {
                 PromptTemplateVariableDescriptor(
                     token: "{{RAW_TRANSCRIPTION}}",
                     tipKey: "Template tip {{RAW_TRANSCRIPTION}}"
+                ),
+                PromptTemplateVariableDescriptor(
+                    token: "{{USER_MAIN_LANGUAGE}}",
+                    tipKey: "Template tip {{USER_MAIN_LANGUAGE}}"
                 )
             ]
         )
@@ -550,8 +587,12 @@ struct ModelSettingsView: View {
     private var remoteLLMSection: some View {
         Divider()
 
-        Text("System Prompt")
-            .font(.subheadline.weight(.medium))
+        promptSectionHeader(
+            "System Prompt",
+            isResetDisabled: systemPrompt == AppPreferenceKey.defaultEnhancementPrompt
+        ) {
+            systemPrompt = AppPreferenceKey.defaultEnhancementPrompt
+        }
 
         PromptEditorView(text: $systemPrompt)
         PromptTemplateVariablesView(
@@ -559,6 +600,10 @@ struct ModelSettingsView: View {
                 PromptTemplateVariableDescriptor(
                     token: "{{RAW_TRANSCRIPTION}}",
                     tipKey: "Template tip {{RAW_TRANSCRIPTION}}"
+                ),
+                PromptTemplateVariableDescriptor(
+                    token: "{{USER_MAIN_LANGUAGE}}",
+                    tipKey: "Template tip {{USER_MAIN_LANGUAGE}}"
                 )
             ]
         )
@@ -567,15 +612,25 @@ struct ModelSettingsView: View {
             Text("Configure a remote provider and model, then click Use.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Spacer()
-            Button("Reset to Default") {
-                systemPrompt = AppPreferenceKey.defaultEnhancementPrompt
-            }
-            .controlSize(.small)
-            .disabled(systemPrompt == AppPreferenceKey.defaultEnhancementPrompt)
         }
 
         ModelTableView(title: "Remote LLM Providers", rows: remoteLLMRows, maxHeight: 280)
+    }
+
+    @ViewBuilder
+    private func promptSectionHeader(
+        _ title: LocalizedStringKey,
+        isResetDisabled: Bool,
+        onReset: @escaping () -> Void
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+            Spacer()
+            Button("Reset to Default", action: onReset)
+                .controlSize(.small)
+                .disabled(isResetDisabled)
+        }
     }
 
     private var mlxModelTable: some View {
@@ -649,9 +704,9 @@ struct ModelSettingsView: View {
     private func asrCredentialHint(for provider: RemoteASRProvider) -> String? {
         switch provider {
         case .doubaoASR:
-            return "Doubao uses App ID + Access Token for streaming API."
+            return AppLocalization.localizedString("Doubao uses App ID + Access Token for streaming API.")
         case .aliyunBailianASR:
-            return "Aliyun ASR in Voxt uses realtime WebSocket only: Qwen models use /api-ws/v1/realtime, Fun/Paraformer models use /api-ws/v1/inference."
+            return AppLocalization.localizedString("Aliyun ASR in Voxt uses realtime WebSocket only: Qwen models use /api-ws/v1/realtime, Fun/Paraformer models use /api-ws/v1/inference.")
         case .openAIWhisper, .glmASR:
             return nil
         }
@@ -1033,6 +1088,16 @@ struct ModelSettingsView: View {
         var updated = remoteASRConfigurations
         updated[configuration.providerID] = configuration
         remoteASRProviderConfigurationsRaw = RemoteModelConfigurationStore.saveConfigurations(updated)
+    }
+
+    private func resolvedASRHintSettings(for target: ASRHintTarget) -> ASRHintSettings {
+        ASRHintSettingsStore.resolvedSettings(for: target, rawValue: asrHintSettingsRaw)
+    }
+
+    private func saveASRHintSettings(_ settings: ASRHintSettings, for target: ASRHintTarget) {
+        var updated = ASRHintSettingsStore.load(from: asrHintSettingsRaw)
+        updated[target] = ASRHintSettingsStore.sanitized(settings, for: target)
+        asrHintSettingsRaw = ASRHintSettingsStore.storageValue(for: updated)
     }
 
     private func useRemoteLLMProvider(_ provider: RemoteLLMProvider) {

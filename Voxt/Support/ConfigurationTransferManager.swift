@@ -44,6 +44,7 @@ enum ConfigurationTransferManager {
         var interactionSoundPreset: String
         var overlayPosition: String
         var translationTargetLanguage: String
+        var userMainLanguageCodes: [String]
         var translateSelectedTextOnTranslationHotkey: Bool
         var autoCopyWhenNoFocusedInput: Bool
         var launchAtLogin: Bool
@@ -60,6 +61,112 @@ enum ConfigurationTransferManager {
         var customProxyPort: String
         var customProxyUsername: String
         var customProxyPassword: String
+
+        private enum CodingKeys: String, CodingKey {
+            case interfaceLanguage
+            case selectedInputDeviceID
+            case interactionSoundsEnabled
+            case interactionSoundPreset
+            case overlayPosition
+            case translationTargetLanguage
+            case userMainLanguageCodes
+            case translateSelectedTextOnTranslationHotkey
+            case autoCopyWhenNoFocusedInput
+            case launchAtLogin
+            case showInDock
+            case historyEnabled
+            case historyRetentionPeriod
+            case autoCheckForUpdates
+            case hotkeyDebugLoggingEnabled
+            case llmDebugLoggingEnabled
+            case useSystemProxy
+            case networkProxyMode
+            case customProxyScheme
+            case customProxyHost
+            case customProxyPort
+            case customProxyUsername
+            case customProxyPassword
+        }
+
+        init(
+            interfaceLanguage: String,
+            selectedInputDeviceID: Int,
+            interactionSoundsEnabled: Bool,
+            interactionSoundPreset: String,
+            overlayPosition: String,
+            translationTargetLanguage: String,
+            userMainLanguageCodes: [String],
+            translateSelectedTextOnTranslationHotkey: Bool,
+            autoCopyWhenNoFocusedInput: Bool,
+            launchAtLogin: Bool,
+            showInDock: Bool,
+            historyEnabled: Bool,
+            historyRetentionPeriod: String,
+            autoCheckForUpdates: Bool,
+            hotkeyDebugLoggingEnabled: Bool,
+            llmDebugLoggingEnabled: Bool,
+            useSystemProxy: Bool,
+            networkProxyMode: String,
+            customProxyScheme: String,
+            customProxyHost: String,
+            customProxyPort: String,
+            customProxyUsername: String,
+            customProxyPassword: String
+        ) {
+            self.interfaceLanguage = interfaceLanguage
+            self.selectedInputDeviceID = selectedInputDeviceID
+            self.interactionSoundsEnabled = interactionSoundsEnabled
+            self.interactionSoundPreset = interactionSoundPreset
+            self.overlayPosition = overlayPosition
+            self.translationTargetLanguage = translationTargetLanguage
+            self.userMainLanguageCodes = UserMainLanguageOption.sanitizedSelection(userMainLanguageCodes)
+            self.translateSelectedTextOnTranslationHotkey = translateSelectedTextOnTranslationHotkey
+            self.autoCopyWhenNoFocusedInput = autoCopyWhenNoFocusedInput
+            self.launchAtLogin = launchAtLogin
+            self.showInDock = showInDock
+            self.historyEnabled = historyEnabled
+            self.historyRetentionPeriod = historyRetentionPeriod
+            self.autoCheckForUpdates = autoCheckForUpdates
+            self.hotkeyDebugLoggingEnabled = hotkeyDebugLoggingEnabled
+            self.llmDebugLoggingEnabled = llmDebugLoggingEnabled
+            self.useSystemProxy = useSystemProxy
+            self.networkProxyMode = networkProxyMode
+            self.customProxyScheme = customProxyScheme
+            self.customProxyHost = customProxyHost
+            self.customProxyPort = customProxyPort
+            self.customProxyUsername = customProxyUsername
+            self.customProxyPassword = customProxyPassword
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            interfaceLanguage = try container.decode(String.self, forKey: .interfaceLanguage)
+            selectedInputDeviceID = try container.decode(Int.self, forKey: .selectedInputDeviceID)
+            interactionSoundsEnabled = try container.decode(Bool.self, forKey: .interactionSoundsEnabled)
+            interactionSoundPreset = try container.decode(String.self, forKey: .interactionSoundPreset)
+            overlayPosition = try container.decode(String.self, forKey: .overlayPosition)
+            translationTargetLanguage = try container.decode(String.self, forKey: .translationTargetLanguage)
+            userMainLanguageCodes = UserMainLanguageOption.sanitizedSelection(
+                try container.decodeIfPresent([String].self, forKey: .userMainLanguageCodes)
+                    ?? UserMainLanguageOption.defaultSelectionCodes()
+            )
+            translateSelectedTextOnTranslationHotkey = try container.decode(Bool.self, forKey: .translateSelectedTextOnTranslationHotkey)
+            autoCopyWhenNoFocusedInput = try container.decode(Bool.self, forKey: .autoCopyWhenNoFocusedInput)
+            launchAtLogin = try container.decode(Bool.self, forKey: .launchAtLogin)
+            showInDock = try container.decode(Bool.self, forKey: .showInDock)
+            historyEnabled = try container.decode(Bool.self, forKey: .historyEnabled)
+            historyRetentionPeriod = try container.decode(String.self, forKey: .historyRetentionPeriod)
+            autoCheckForUpdates = try container.decode(Bool.self, forKey: .autoCheckForUpdates)
+            hotkeyDebugLoggingEnabled = try container.decode(Bool.self, forKey: .hotkeyDebugLoggingEnabled)
+            llmDebugLoggingEnabled = try container.decode(Bool.self, forKey: .llmDebugLoggingEnabled)
+            useSystemProxy = try container.decode(Bool.self, forKey: .useSystemProxy)
+            networkProxyMode = try container.decode(String.self, forKey: .networkProxyMode)
+            customProxyScheme = try container.decode(String.self, forKey: .customProxyScheme)
+            customProxyHost = try container.decode(String.self, forKey: .customProxyHost)
+            customProxyPort = try container.decode(String.self, forKey: .customProxyPort)
+            customProxyUsername = try container.decode(String.self, forKey: .customProxyUsername)
+            customProxyPassword = try container.decode(String.self, forKey: .customProxyPassword)
+        }
     }
 
     struct ModelSettings: Codable {
@@ -68,6 +175,7 @@ enum ConfigurationTransferManager {
         var enhancementSystemPrompt: String
         var translationSystemPrompt: String
         var rewriteSystemPrompt: String
+        var asrHintSettings: String
         var mlxModelRepo: String
         var customLLMModelRepo: String
         var translationCustomLLMModelRepo: String
@@ -81,6 +189,93 @@ enum ConfigurationTransferManager {
         var useHfMirror: Bool
         var remoteASRProviderConfigurations: [SanitizedRemoteProviderConfiguration]
         var remoteLLMProviderConfigurations: [SanitizedRemoteProviderConfiguration]
+
+        private enum CodingKeys: String, CodingKey {
+            case transcriptionEngine
+            case enhancementMode
+            case enhancementSystemPrompt
+            case translationSystemPrompt
+            case rewriteSystemPrompt
+            case asrHintSettings
+            case mlxModelRepo
+            case customLLMModelRepo
+            case translationCustomLLMModelRepo
+            case rewriteCustomLLMModelRepo
+            case translationModelProvider
+            case rewriteModelProvider
+            case remoteASRSelectedProvider
+            case remoteLLMSelectedProvider
+            case translationRemoteLLMProvider
+            case rewriteRemoteLLMProvider
+            case useHfMirror
+            case remoteASRProviderConfigurations
+            case remoteLLMProviderConfigurations
+        }
+
+        init(
+            transcriptionEngine: String,
+            enhancementMode: String,
+            enhancementSystemPrompt: String,
+            translationSystemPrompt: String,
+            rewriteSystemPrompt: String,
+            asrHintSettings: String,
+            mlxModelRepo: String,
+            customLLMModelRepo: String,
+            translationCustomLLMModelRepo: String,
+            rewriteCustomLLMModelRepo: String,
+            translationModelProvider: String,
+            rewriteModelProvider: String,
+            remoteASRSelectedProvider: String,
+            remoteLLMSelectedProvider: String,
+            translationRemoteLLMProvider: String,
+            rewriteRemoteLLMProvider: String,
+            useHfMirror: Bool,
+            remoteASRProviderConfigurations: [SanitizedRemoteProviderConfiguration],
+            remoteLLMProviderConfigurations: [SanitizedRemoteProviderConfiguration]
+        ) {
+            self.transcriptionEngine = transcriptionEngine
+            self.enhancementMode = enhancementMode
+            self.enhancementSystemPrompt = enhancementSystemPrompt
+            self.translationSystemPrompt = translationSystemPrompt
+            self.rewriteSystemPrompt = rewriteSystemPrompt
+            self.asrHintSettings = asrHintSettings
+            self.mlxModelRepo = mlxModelRepo
+            self.customLLMModelRepo = customLLMModelRepo
+            self.translationCustomLLMModelRepo = translationCustomLLMModelRepo
+            self.rewriteCustomLLMModelRepo = rewriteCustomLLMModelRepo
+            self.translationModelProvider = translationModelProvider
+            self.rewriteModelProvider = rewriteModelProvider
+            self.remoteASRSelectedProvider = remoteASRSelectedProvider
+            self.remoteLLMSelectedProvider = remoteLLMSelectedProvider
+            self.translationRemoteLLMProvider = translationRemoteLLMProvider
+            self.rewriteRemoteLLMProvider = rewriteRemoteLLMProvider
+            self.useHfMirror = useHfMirror
+            self.remoteASRProviderConfigurations = remoteASRProviderConfigurations
+            self.remoteLLMProviderConfigurations = remoteLLMProviderConfigurations
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            transcriptionEngine = try container.decode(String.self, forKey: .transcriptionEngine)
+            enhancementMode = try container.decode(String.self, forKey: .enhancementMode)
+            enhancementSystemPrompt = try container.decode(String.self, forKey: .enhancementSystemPrompt)
+            translationSystemPrompt = try container.decode(String.self, forKey: .translationSystemPrompt)
+            rewriteSystemPrompt = try container.decode(String.self, forKey: .rewriteSystemPrompt)
+            asrHintSettings = try container.decodeIfPresent(String.self, forKey: .asrHintSettings) ?? ASRHintSettingsStore.defaultStoredValue()
+            mlxModelRepo = try container.decode(String.self, forKey: .mlxModelRepo)
+            customLLMModelRepo = try container.decode(String.self, forKey: .customLLMModelRepo)
+            translationCustomLLMModelRepo = try container.decode(String.self, forKey: .translationCustomLLMModelRepo)
+            rewriteCustomLLMModelRepo = try container.decode(String.self, forKey: .rewriteCustomLLMModelRepo)
+            translationModelProvider = try container.decode(String.self, forKey: .translationModelProvider)
+            rewriteModelProvider = try container.decode(String.self, forKey: .rewriteModelProvider)
+            remoteASRSelectedProvider = try container.decode(String.self, forKey: .remoteASRSelectedProvider)
+            remoteLLMSelectedProvider = try container.decode(String.self, forKey: .remoteLLMSelectedProvider)
+            translationRemoteLLMProvider = try container.decode(String.self, forKey: .translationRemoteLLMProvider)
+            rewriteRemoteLLMProvider = try container.decode(String.self, forKey: .rewriteRemoteLLMProvider)
+            useHfMirror = try container.decode(Bool.self, forKey: .useHfMirror)
+            remoteASRProviderConfigurations = try container.decode([SanitizedRemoteProviderConfiguration].self, forKey: .remoteASRProviderConfigurations)
+            remoteLLMProviderConfigurations = try container.decode([SanitizedRemoteProviderConfiguration].self, forKey: .remoteLLMProviderConfigurations)
+        }
     }
 
     struct AppBranchSettings: Codable {
@@ -266,39 +461,45 @@ enum ConfigurationTransferManager {
     }
 
     private static func makeExportPayload(defaults: UserDefaults) -> ExportPayload {
-        ExportPayload(
+        let general = GeneralSettings(
+            interfaceLanguage: defaults.string(forKey: AppPreferenceKey.interfaceLanguage) ?? AppInterfaceLanguage.system.rawValue,
+            selectedInputDeviceID: defaults.integer(forKey: AppPreferenceKey.selectedInputDeviceID),
+            interactionSoundsEnabled: defaults.bool(forKey: AppPreferenceKey.interactionSoundsEnabled),
+            interactionSoundPreset: defaults.string(forKey: AppPreferenceKey.interactionSoundPreset) ?? "",
+            overlayPosition: defaults.string(forKey: AppPreferenceKey.overlayPosition) ?? OverlayPosition.bottom.rawValue,
+            translationTargetLanguage: defaults.string(forKey: AppPreferenceKey.translationTargetLanguage) ?? TranslationTargetLanguage.english.rawValue,
+            userMainLanguageCodes: UserMainLanguageOption.storedSelection(
+                from: defaults.string(forKey: AppPreferenceKey.userMainLanguageCodes)
+            ),
+            translateSelectedTextOnTranslationHotkey: defaults.object(forKey: AppPreferenceKey.translateSelectedTextOnTranslationHotkey) as? Bool ?? true,
+            autoCopyWhenNoFocusedInput: defaults.bool(forKey: AppPreferenceKey.autoCopyWhenNoFocusedInput),
+            launchAtLogin: defaults.bool(forKey: AppPreferenceKey.launchAtLogin),
+            showInDock: defaults.bool(forKey: AppPreferenceKey.showInDock),
+            historyEnabled: defaults.object(forKey: AppPreferenceKey.historyEnabled) as? Bool ?? true,
+            historyRetentionPeriod: defaults.string(forKey: AppPreferenceKey.historyRetentionPeriod) ?? HistoryRetentionPeriod.forever.rawValue,
+            autoCheckForUpdates: defaults.object(forKey: AppPreferenceKey.autoCheckForUpdates) as? Bool ?? true,
+            hotkeyDebugLoggingEnabled: defaults.bool(forKey: AppPreferenceKey.hotkeyDebugLoggingEnabled),
+            llmDebugLoggingEnabled: defaults.bool(forKey: AppPreferenceKey.llmDebugLoggingEnabled),
+            useSystemProxy: defaults.object(forKey: AppPreferenceKey.useSystemProxy) as? Bool ?? true,
+            networkProxyMode: defaults.string(forKey: AppPreferenceKey.networkProxyMode) ?? "system",
+            customProxyScheme: defaults.string(forKey: AppPreferenceKey.customProxyScheme) ?? "",
+            customProxyHost: defaults.string(forKey: AppPreferenceKey.customProxyHost) ?? "",
+            customProxyPort: defaults.string(forKey: AppPreferenceKey.customProxyPort) ?? "",
+            customProxyUsername: defaults.string(forKey: AppPreferenceKey.customProxyUsername) ?? "",
+            customProxyPassword: sanitizeSensitive(defaults.string(forKey: AppPreferenceKey.customProxyPassword) ?? "")
+        )
+
+        return ExportPayload(
             version: 1,
             exportedAt: ISO8601DateFormatter().string(from: Date()),
-            general: .init(
-                interfaceLanguage: defaults.string(forKey: AppPreferenceKey.interfaceLanguage) ?? AppInterfaceLanguage.system.rawValue,
-                selectedInputDeviceID: defaults.integer(forKey: AppPreferenceKey.selectedInputDeviceID),
-                interactionSoundsEnabled: defaults.bool(forKey: AppPreferenceKey.interactionSoundsEnabled),
-                interactionSoundPreset: defaults.string(forKey: AppPreferenceKey.interactionSoundPreset) ?? "",
-                overlayPosition: defaults.string(forKey: AppPreferenceKey.overlayPosition) ?? OverlayPosition.bottom.rawValue,
-                translationTargetLanguage: defaults.string(forKey: AppPreferenceKey.translationTargetLanguage) ?? TranslationTargetLanguage.english.rawValue,
-                translateSelectedTextOnTranslationHotkey: defaults.object(forKey: AppPreferenceKey.translateSelectedTextOnTranslationHotkey) as? Bool ?? true,
-                autoCopyWhenNoFocusedInput: defaults.bool(forKey: AppPreferenceKey.autoCopyWhenNoFocusedInput),
-                launchAtLogin: defaults.bool(forKey: AppPreferenceKey.launchAtLogin),
-                showInDock: defaults.bool(forKey: AppPreferenceKey.showInDock),
-                historyEnabled: defaults.object(forKey: AppPreferenceKey.historyEnabled) as? Bool ?? true,
-                historyRetentionPeriod: defaults.string(forKey: AppPreferenceKey.historyRetentionPeriod) ?? HistoryRetentionPeriod.forever.rawValue,
-                autoCheckForUpdates: defaults.object(forKey: AppPreferenceKey.autoCheckForUpdates) as? Bool ?? true,
-                hotkeyDebugLoggingEnabled: defaults.bool(forKey: AppPreferenceKey.hotkeyDebugLoggingEnabled),
-                llmDebugLoggingEnabled: defaults.bool(forKey: AppPreferenceKey.llmDebugLoggingEnabled),
-                useSystemProxy: defaults.object(forKey: AppPreferenceKey.useSystemProxy) as? Bool ?? true,
-                networkProxyMode: defaults.string(forKey: AppPreferenceKey.networkProxyMode) ?? "system",
-                customProxyScheme: defaults.string(forKey: AppPreferenceKey.customProxyScheme) ?? "",
-                customProxyHost: defaults.string(forKey: AppPreferenceKey.customProxyHost) ?? "",
-                customProxyPort: defaults.string(forKey: AppPreferenceKey.customProxyPort) ?? "",
-                customProxyUsername: defaults.string(forKey: AppPreferenceKey.customProxyUsername) ?? "",
-                customProxyPassword: sanitizeSensitive(defaults.string(forKey: AppPreferenceKey.customProxyPassword) ?? "")
-            ),
+            general: general,
             model: .init(
                 transcriptionEngine: defaults.string(forKey: AppPreferenceKey.transcriptionEngine) ?? TranscriptionEngine.mlxAudio.rawValue,
                 enhancementMode: defaults.string(forKey: AppPreferenceKey.enhancementMode) ?? EnhancementMode.off.rawValue,
                 enhancementSystemPrompt: defaults.string(forKey: AppPreferenceKey.enhancementSystemPrompt) ?? AppPreferenceKey.defaultEnhancementPrompt,
                 translationSystemPrompt: defaults.string(forKey: AppPreferenceKey.translationSystemPrompt) ?? AppPreferenceKey.defaultTranslationPrompt,
                 rewriteSystemPrompt: defaults.string(forKey: AppPreferenceKey.rewriteSystemPrompt) ?? AppPreferenceKey.defaultRewritePrompt,
+                asrHintSettings: defaults.string(forKey: AppPreferenceKey.asrHintSettings) ?? ASRHintSettingsStore.defaultStoredValue(),
                 mlxModelRepo: defaults.string(forKey: AppPreferenceKey.mlxModelRepo) ?? MLXModelManager.defaultModelRepo,
                 customLLMModelRepo: defaults.string(forKey: AppPreferenceKey.customLLMModelRepo) ?? CustomLLMModelManager.defaultModelRepo,
                 translationCustomLLMModelRepo: defaults.string(forKey: AppPreferenceKey.translationCustomLLMModelRepo) ?? CustomLLMModelManager.defaultModelRepo,
@@ -348,6 +549,10 @@ enum ConfigurationTransferManager {
         defaults.set(general.interactionSoundPreset, forKey: AppPreferenceKey.interactionSoundPreset)
         defaults.set(general.overlayPosition, forKey: AppPreferenceKey.overlayPosition)
         defaults.set(general.translationTargetLanguage, forKey: AppPreferenceKey.translationTargetLanguage)
+        defaults.set(
+            UserMainLanguageOption.storageValue(for: general.userMainLanguageCodes),
+            forKey: AppPreferenceKey.userMainLanguageCodes
+        )
         defaults.set(general.translateSelectedTextOnTranslationHotkey, forKey: AppPreferenceKey.translateSelectedTextOnTranslationHotkey)
         defaults.set(general.autoCopyWhenNoFocusedInput, forKey: AppPreferenceKey.autoCopyWhenNoFocusedInput)
         defaults.set(general.launchAtLogin, forKey: AppPreferenceKey.launchAtLogin)
@@ -370,6 +575,7 @@ enum ConfigurationTransferManager {
         defaults.set(model.enhancementSystemPrompt, forKey: AppPreferenceKey.enhancementSystemPrompt)
         defaults.set(model.translationSystemPrompt, forKey: AppPreferenceKey.translationSystemPrompt)
         defaults.set(model.rewriteSystemPrompt, forKey: AppPreferenceKey.rewriteSystemPrompt)
+        defaults.set(model.asrHintSettings, forKey: AppPreferenceKey.asrHintSettings)
         defaults.set(model.mlxModelRepo, forKey: AppPreferenceKey.mlxModelRepo)
         defaults.set(model.customLLMModelRepo, forKey: AppPreferenceKey.customLLMModelRepo)
         defaults.set(model.translationCustomLLMModelRepo, forKey: AppPreferenceKey.translationCustomLLMModelRepo)

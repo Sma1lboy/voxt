@@ -28,6 +28,25 @@ extension AppDelegate {
         enumValue(forKey: AppPreferenceKey.translationTargetLanguage, default: .english)
     }
 
+    var userMainLanguageCodes: [String] {
+        UserMainLanguageOption.storedSelection(
+            from: defaults.string(forKey: AppPreferenceKey.userMainLanguageCodes)
+        )
+    }
+
+    var userMainLanguage: UserMainLanguageOption {
+        let selectedCodes = userMainLanguageCodes
+        if let firstCode = selectedCodes.first,
+           let option = UserMainLanguageOption.option(for: firstCode) {
+            return option
+        }
+        return UserMainLanguageOption.fallbackOption()
+    }
+
+    var userMainLanguagePromptValue: String {
+        userMainLanguage.promptName
+    }
+
     var translateSelectedTextOnTranslationHotkey: Bool {
         defaults.bool(forKey: AppPreferenceKey.translateSelectedTextOnTranslationHotkey)
     }

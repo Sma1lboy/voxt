@@ -43,6 +43,10 @@ struct GroupEditorSheet: View {
                         PromptTemplateVariableDescriptor(
                             token: AppDelegate.rawTranscriptionTemplateVariable,
                             tipKey: "Template tip {{RAW_TRANSCRIPTION}}"
+                        ),
+                        PromptTemplateVariableDescriptor(
+                            token: AppDelegate.userMainLanguageTemplateVariable,
+                            tipKey: "Template tip {{USER_MAIN_LANGUAGE}}"
                         )
                     ]
                 )

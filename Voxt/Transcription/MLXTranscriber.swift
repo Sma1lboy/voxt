@@ -395,14 +395,46 @@ class MLXTranscriber: ObservableObject, TranscriberProtocol {
     }
 
     private func generationParameters(for stage: CorrectionStage) -> STTGenerateParameters? {
+        let hintPayload = resolvedHintPayload()
+        let languageHint = hintPayload.language
         switch stage {
         case .intermediate:
-            return STTGenerateParameters(maxTokens: 1024, temperature: 0.0, topP: 0.95, topK: 0)
+            return STTGenerateParameters(
+                maxTokens: 1024,
+                temperature: 0.0,
+                topP: 0.95,
+                topK: 0,
+                language: languageHint ?? "English"
+            )
         case .postStopQuick:
-            return STTGenerateParameters(maxTokens: 2048, temperature: 0.0, topP: 0.95, topK: 0)
+            return STTGenerateParameters(
+                maxTokens: 2048,
+                temperature: 0.0,
+                topP: 0.95,
+                topK: 0,
+                language: languageHint ?? "English"
+            )
         case .postStopFinal:
-            return nil
+            guard let languageHint else { return nil }
+            return STTGenerateParameters(language: languageHint)
         }
+    }
+
+    private func resolvedHintPayload() -> ResolvedASRHintPayload {
+        let defaults = UserDefaults.standard
+        let settings = ASRHintSettingsStore.resolvedSettings(
+            for: .mlxAudio,
+            rawValue: defaults.string(forKey: AppPreferenceKey.asrHintSettings)
+        )
+        let userLanguageCodes = UserMainLanguageOption.storedSelection(
+            from: defaults.string(forKey: AppPreferenceKey.userMainLanguageCodes)
+        )
+        return ASRHintResolver.resolve(
+            target: .mlxAudio,
+            settings: settings,
+            userLanguageCodes: userLanguageCodes,
+            mlxModelRepo: modelManager.currentModelRepo
+        )
     }
 
     private func stageLabel(for stage: CorrectionStage) -> String {

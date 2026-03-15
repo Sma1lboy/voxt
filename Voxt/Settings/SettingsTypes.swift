@@ -134,6 +134,228 @@ enum AppInterfaceLanguage: String, CaseIterable, Identifiable {
     }
 }
 
+struct UserMainLanguageOption: Identifiable, Hashable {
+    let code: String
+    let promptName: String
+    let aliases: [String]
+
+    var id: String { code }
+
+    func title(locale: Locale = AppLocalization.locale) -> String {
+        switch code {
+        case "zh-hans":
+            return AppLocalization.localizedString("Chinese (Simplified)")
+        case "zh-hant":
+            return AppLocalization.localizedString("Chinese (Traditional)")
+        default:
+            break
+        }
+        return locale.localizedString(forLanguageCode: code) ?? promptName
+    }
+
+    func matches(_ query: String, locale: Locale = AppLocalization.locale) -> Bool {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedQuery.isEmpty else { return true }
+        let haystack = ([code, promptName, title(locale: locale)] + aliases)
+            .joined(separator: " ")
+            .lowercased()
+        return haystack.contains(normalizedQuery)
+    }
+
+    static let fallbackCode = "en"
+
+    static let all: [UserMainLanguageOption] = [
+        .init(code: "af", promptName: "Afrikaans", aliases: []),
+        .init(code: "am", promptName: "Amharic", aliases: []),
+        .init(code: "ar", promptName: "Arabic", aliases: []),
+        .init(code: "as", promptName: "Assamese", aliases: []),
+        .init(code: "az", promptName: "Azerbaijani", aliases: []),
+        .init(code: "be", promptName: "Belarusian", aliases: []),
+        .init(code: "bg", promptName: "Bulgarian", aliases: []),
+        .init(code: "bn", promptName: "Bengali", aliases: []),
+        .init(code: "bo", promptName: "Tibetan", aliases: []),
+        .init(code: "br", promptName: "Breton", aliases: []),
+        .init(code: "bs", promptName: "Bosnian", aliases: []),
+        .init(code: "ca", promptName: "Catalan", aliases: []),
+        .init(code: "cs", promptName: "Czech", aliases: []),
+        .init(code: "cy", promptName: "Welsh", aliases: []),
+        .init(code: "da", promptName: "Danish", aliases: []),
+        .init(code: "de", promptName: "German", aliases: []),
+        .init(code: "el", promptName: "Greek", aliases: []),
+        .init(code: "en", promptName: "English", aliases: []),
+        .init(code: "es", promptName: "Spanish", aliases: []),
+        .init(code: "et", promptName: "Estonian", aliases: []),
+        .init(code: "eu", promptName: "Basque", aliases: []),
+        .init(code: "fa", promptName: "Persian", aliases: ["Farsi"]),
+        .init(code: "fi", promptName: "Finnish", aliases: []),
+        .init(code: "fo", promptName: "Faroese", aliases: []),
+        .init(code: "fr", promptName: "French", aliases: []),
+        .init(code: "gl", promptName: "Galician", aliases: []),
+        .init(code: "gu", promptName: "Gujarati", aliases: []),
+        .init(code: "ha", promptName: "Hausa", aliases: []),
+        .init(code: "he", promptName: "Hebrew", aliases: []),
+        .init(code: "hi", promptName: "Hindi", aliases: []),
+        .init(code: "hr", promptName: "Croatian", aliases: []),
+        .init(code: "ht", promptName: "Haitian Creole", aliases: []),
+        .init(code: "hu", promptName: "Hungarian", aliases: []),
+        .init(code: "hy", promptName: "Armenian", aliases: []),
+        .init(code: "id", promptName: "Indonesian", aliases: ["Bahasa Indonesia"]),
+        .init(code: "is", promptName: "Icelandic", aliases: []),
+        .init(code: "it", promptName: "Italian", aliases: []),
+        .init(code: "ja", promptName: "Japanese", aliases: []),
+        .init(code: "jv", promptName: "Javanese", aliases: []),
+        .init(code: "ka", promptName: "Georgian", aliases: []),
+        .init(code: "kk", promptName: "Kazakh", aliases: []),
+        .init(code: "km", promptName: "Khmer", aliases: []),
+        .init(code: "kn", promptName: "Kannada", aliases: []),
+        .init(code: "ko", promptName: "Korean", aliases: []),
+        .init(code: "la", promptName: "Latin", aliases: []),
+        .init(code: "lb", promptName: "Luxembourgish", aliases: []),
+        .init(code: "lo", promptName: "Lao", aliases: []),
+        .init(code: "lt", promptName: "Lithuanian", aliases: []),
+        .init(code: "lv", promptName: "Latvian", aliases: []),
+        .init(code: "mg", promptName: "Malagasy", aliases: []),
+        .init(code: "mi", promptName: "Maori", aliases: ["Māori"]),
+        .init(code: "mk", promptName: "Macedonian", aliases: []),
+        .init(code: "ml", promptName: "Malayalam", aliases: []),
+        .init(code: "mn", promptName: "Mongolian", aliases: []),
+        .init(code: "mr", promptName: "Marathi", aliases: []),
+        .init(code: "ms", promptName: "Malay", aliases: []),
+        .init(code: "mt", promptName: "Maltese", aliases: []),
+        .init(code: "my", promptName: "Burmese", aliases: ["Myanmar"]),
+        .init(code: "ne", promptName: "Nepali", aliases: []),
+        .init(code: "nl", promptName: "Dutch", aliases: []),
+        .init(code: "nn", promptName: "Norwegian Nynorsk", aliases: []),
+        .init(code: "no", promptName: "Norwegian", aliases: []),
+        .init(code: "oc", promptName: "Occitan", aliases: []),
+        .init(code: "pa", promptName: "Punjabi", aliases: []),
+        .init(code: "pl", promptName: "Polish", aliases: []),
+        .init(code: "ps", promptName: "Pashto", aliases: []),
+        .init(code: "pt", promptName: "Portuguese", aliases: []),
+        .init(code: "ro", promptName: "Romanian", aliases: []),
+        .init(code: "ru", promptName: "Russian", aliases: []),
+        .init(code: "sa", promptName: "Sanskrit", aliases: []),
+        .init(code: "sd", promptName: "Sindhi", aliases: []),
+        .init(code: "si", promptName: "Sinhala", aliases: []),
+        .init(code: "sk", promptName: "Slovak", aliases: []),
+        .init(code: "sl", promptName: "Slovenian", aliases: []),
+        .init(code: "sn", promptName: "Shona", aliases: []),
+        .init(code: "so", promptName: "Somali", aliases: []),
+        .init(code: "sq", promptName: "Albanian", aliases: []),
+        .init(code: "sr", promptName: "Serbian", aliases: []),
+        .init(code: "su", promptName: "Sundanese", aliases: []),
+        .init(code: "sv", promptName: "Swedish", aliases: []),
+        .init(code: "sw", promptName: "Swahili", aliases: []),
+        .init(code: "ta", promptName: "Tamil", aliases: []),
+        .init(code: "te", promptName: "Telugu", aliases: []),
+        .init(code: "tg", promptName: "Tajik", aliases: []),
+        .init(code: "th", promptName: "Thai", aliases: []),
+        .init(code: "tk", promptName: "Turkmen", aliases: []),
+        .init(code: "tl", promptName: "Tagalog", aliases: ["Filipino"]),
+        .init(code: "tr", promptName: "Turkish", aliases: []),
+        .init(code: "tt", promptName: "Tatar", aliases: []),
+        .init(code: "uk", promptName: "Ukrainian", aliases: []),
+        .init(code: "ur", promptName: "Urdu", aliases: []),
+        .init(code: "uz", promptName: "Uzbek", aliases: []),
+        .init(code: "vi", promptName: "Vietnamese", aliases: []),
+        .init(code: "yi", promptName: "Yiddish", aliases: []),
+        .init(code: "yo", promptName: "Yoruba", aliases: []),
+        .init(code: "zh-hans", promptName: "Simplified Chinese", aliases: ["Chinese", "Mandarin", "Chinese (Simplified)"]),
+        .init(code: "zh-hant", promptName: "Traditional Chinese", aliases: ["Chinese", "Mandarin", "Chinese (Traditional)", "Traditional Chinese", "zh-TW", "zh-HK"])
+    ]
+
+    static func option(for code: String) -> UserMainLanguageOption? {
+        let normalized = normalizedCode(for: code)
+        return all.first { $0.code == normalized }
+    }
+
+    static func sanitizedSelection(_ codes: [String]) -> [String] {
+        var seen = Set<String>()
+        let sanitized: [String] = codes.compactMap { (code: String) -> String? in
+            let normalized = normalizedCode(for: code)
+            guard option(for: normalized) != nil, seen.insert(normalized).inserted else { return nil }
+            return normalized
+        }
+        return sanitized.isEmpty ? defaultSelectionCodes() : sanitized
+    }
+
+    static func storedSelection(from rawValue: String?) -> [String] {
+        guard let rawValue,
+              let data = rawValue.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([String].self, from: data)
+        else {
+            return defaultSelectionCodes()
+        }
+        return sanitizedSelection(decoded)
+    }
+
+    static func storageValue(for codes: [String]) -> String {
+        let sanitized = sanitizedSelection(codes)
+        guard let data = try? JSONEncoder().encode(sanitized),
+              let text = String(data: data, encoding: .utf8)
+        else {
+            return "[\"\(fallbackCode)\"]"
+        }
+        return text
+    }
+
+    static func defaultSelectionCodes(preferredLanguages: [String] = Locale.preferredLanguages) -> [String] {
+        [fallbackOption(preferredLanguages: preferredLanguages).code]
+    }
+
+    static var defaultStoredSelectionValue: String {
+        storageValue(for: defaultSelectionCodes())
+    }
+
+    static func fallbackOption(preferredLanguages: [String] = Locale.preferredLanguages) -> UserMainLanguageOption {
+        for identifier in preferredLanguages {
+            let normalized = normalizedCode(for: identifier)
+            guard !normalized.isEmpty else { continue }
+            if let matched = option(for: normalized) {
+                return matched
+            }
+        }
+        return option(for: fallbackCode) ?? all[0]
+    }
+
+    var isChinese: Bool {
+        code == "zh-hans" || code == "zh-hant"
+    }
+
+    var isTraditionalChinese: Bool {
+        code == "zh-hant"
+    }
+
+    var baseLanguageCode: String {
+        switch code {
+        case "zh-hans", "zh-hant":
+            return "zh"
+        default:
+            return code.split(separator: "-").first.map(String.init) ?? code
+        }
+    }
+
+    private static func normalizedCode(for rawValue: String) -> String {
+        let normalized = rawValue
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !normalized.isEmpty else { return normalized }
+
+        if normalized == "zh" || normalized.hasPrefix("zh-cn") || normalized.hasPrefix("zh-sg") || normalized.hasPrefix("zh-hans") {
+            return "zh-hans"
+        }
+        if normalized.hasPrefix("zh-tw") || normalized.hasPrefix("zh-hk") || normalized.hasPrefix("zh-mo") || normalized.hasPrefix("zh-hant") {
+            return "zh-hant"
+        }
+
+        let baseCode = normalized.split(separator: "-").first.map(String.init) ?? normalized
+        if all.contains(where: { $0.code == baseCode }) {
+            return baseCode
+        }
+        return normalized
+    }
+}
+
 enum TranslationTargetLanguage: String, CaseIterable, Identifiable {
     case english
     case chineseSimplified
