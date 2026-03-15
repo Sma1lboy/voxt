@@ -502,3 +502,10 @@
 "No usable LLM is available for dictionary ingestion. Configure Apple Intelligence, a local custom LLM, or a remote LLM first." = "当前没有可用于词典录入的 LLM。请先配置 Apple Intelligence、本地自定义 LLM 或远程 LLM。";
 "Dictionary ingestion returned invalid text." = "词典录入返回了无效文本。";
 "Done" = "完成";
+"Dictionary…" = "词典…";
+"Import" = "导入";
+"Export" = "导出";
+"Dictionary exported successfully." = "词典导出成功。";
+"Dictionary export failed: %@" = "词典导出失败：%@";
+"Imported %d terms and skipped %d duplicates." = "已导入 %d 个词汇，跳过 %d 个重复项。";
+"Dictionary import failed: %@" = "词典导入失败：%@";

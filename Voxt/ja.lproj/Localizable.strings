@@ -502,3 +502,10 @@
 "No usable LLM is available for dictionary ingestion. Configure Apple Intelligence, a local custom LLM, or a remote LLM first." = "辞書取り込みに使用できる LLM がありません。先に Apple Intelligence、ローカルのカスタム LLM、またはリモート LLM を設定してください。";
 "Dictionary ingestion returned invalid text." = "辞書取り込みで無効なテキストが返されました。";
 "Done" = "完了";
+"Dictionary…" = "辞書…";
+"Import" = "インポート";
+"Export" = "エクスポート";
+"Dictionary exported successfully." = "辞書のエクスポートが完了しました。";
+"Dictionary export failed: %@" = "辞書のエクスポートに失敗しました: %@";
+"Imported %d terms and skipped %d duplicates." = "%d 件の用語を取り込み、%d 件の重複をスキップしました。";
+"Dictionary import failed: %@" = "辞書のインポートに失敗しました: %@";

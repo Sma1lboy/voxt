@@ -13,6 +13,10 @@ struct VoiceEndCommandState {
     let silenceDuration: TimeInterval = 1.0
 }
 
+struct SettingsWindowPresentationState {
+    var shouldRestoreAfterUpdate = false
+}
+
 @main
 struct VoxtApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -157,6 +161,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var lastEnhancementPromptContext: EnhancementPromptContext?
     let tapStopGuardInterval: TimeInterval = 0.35
     let transcriptionStartDebounceInterval: TimeInterval = 0.08
+    var settingsWindowPresentationState = SettingsWindowPresentationState()
 
     override init() {
         let repo = UserDefaults.standard.string(forKey: AppPreferenceKey.mlxModelRepo)
@@ -265,6 +270,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.image?.accessibilityDescription = "Voxt"
         }
         buildMenu()
+        appUpdateManager.onUpdatePresentationWillBegin = { [weak self] in
+            self?.prepareSettingsWindowForUpdatePresentation()
+        }
+        appUpdateManager.onUpdatePresentationDidEnd = { [weak self] in
+            self?.restoreSettingsWindowAfterUpdateSessionIfNeeded()
+        }
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: nil,

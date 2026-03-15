@@ -223,13 +223,25 @@ private struct DictionaryListRowContainer<Content: View, Actions: View>: View {
     }
 }
 
-private struct DictionaryCapsuleBadge<Title: StringProtocol>: View {
-    let title: Title
+private struct DictionaryCapsuleBadge: View {
+    let title: Text
     let fill: Color
     let foreground: Color
 
+    init<Title: StringProtocol>(title: Title, fill: Color, foreground: Color) {
+        self.title = Text(String(title))
+        self.fill = fill
+        self.foreground = foreground
+    }
+
+    init(title: LocalizedStringKey, fill: Color, foreground: Color) {
+        self.title = Text(title)
+        self.fill = fill
+        self.foreground = foreground
+    }
+
     var body: some View {
-        Text(String(title))
+        title
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

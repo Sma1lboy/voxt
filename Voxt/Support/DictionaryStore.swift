@@ -177,6 +177,11 @@ struct DictionaryCorrectionResult {
     let correctedTerms: [String]
 }
 
+struct DictionaryImportResult: Equatable {
+    let addedCount: Int
+    let skippedCount: Int
+}
+
 enum DictionaryStoreError: LocalizedError {
     case emptyTerm
     case duplicateTerm
@@ -595,6 +600,15 @@ final class DictionaryStore: ObservableObject {
         persist()
     }
 
+    func exportTransferJSONString() throws -> String {
+        try DictionaryTransferManager.exportJSONString(entries: entries)
+    }
+
+    func importTransferJSONString(_ json: String) throws -> DictionaryImportResult {
+        let payload = try DictionaryTransferManager.importPayload(from: json)
+        return importTransferEntries(payload.entries)
+    }
+
     func makeMatcherIfEnabled(activeGroupID: UUID?) -> DictionaryMatcher? {
         guard defaults.bool(forKey: AppPreferenceKey.dictionaryRecognitionEnabled) else { return nil }
         let activeEntries = eligibleEntries(for: activeGroupID)
@@ -673,6 +687,45 @@ final class DictionaryStore: ObservableObject {
         }
 
         return (display, normalized)
+    }
+
+    private func importTransferEntries(_ transferEntries: [DictionaryTransferManager.Entry]) -> DictionaryImportResult {
+        var mergedEntries = entries
+        var addedCount = 0
+        var skippedCount = 0
+
+        for transferEntry in transferEntries {
+            let display = transferEntry.term.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalized = Self.normalizeTerm(display)
+
+            guard !display.isEmpty, !normalized.isEmpty else {
+                skippedCount += 1
+                continue
+            }
+
+            if mergedEntries.contains(where: { $0.normalizedTerm == normalized && $0.groupID == transferEntry.groupID }) {
+                skippedCount += 1
+                continue
+            }
+
+            let now = Date()
+            mergedEntries.append(
+                DictionaryEntry(
+                    term: display,
+                    normalizedTerm: normalized,
+                    groupID: transferEntry.groupID,
+                    groupNameSnapshot: transferEntry.groupNameSnapshot,
+                    source: .manual,
+                    createdAt: now,
+                    updatedAt: now
+                )
+            )
+            addedCount += 1
+        }
+
+        entries = sortEntries(mergedEntries)
+        persist()
+        return DictionaryImportResult(addedCount: addedCount, skippedCount: skippedCount)
     }
 
     private func recordCandidates(_ candidates: [DictionaryMatchCandidate]) {

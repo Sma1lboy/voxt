@@ -1,5 +1,7 @@
 import SwiftUI
 import Combine
+import AppKit
+import UniformTypeIdentifiers
 
 struct DictionarySettingsView: View {
     @AppStorage(AppPreferenceKey.dictionaryRecognitionEnabled) private var dictionaryRecognitionEnabled = true
@@ -21,6 +23,7 @@ struct DictionarySettingsView: View {
     @State private var showSuggestionFilterSettings = false
     @State private var showSuggestionIngestConfirmation = false
     @State private var suggestionFilterDraft = DictionarySuggestionFilterSettings.defaultValue
+    @State private var dictionaryTransferMessage: String?
     @State private var suggestionActionMessage: String?
 
     private var visibleEntries: [DictionaryEntry] {
@@ -103,6 +106,16 @@ struct DictionarySettingsView: View {
                         .padding(.vertical, 8)
                         .frame(width: 300, alignment: .leading)
                 }
+
+                Button("Import") {
+                    importDictionary()
+                }
+                .controlSize(.small)
+
+                Button("Export") {
+                    exportDictionary()
+                }
+                .controlSize(.small)
             }
             .padding(8)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -182,6 +195,12 @@ struct DictionarySettingsView: View {
                         }
                     }
                     .frame(maxHeight: .infinity, alignment: .top)
+                }
+
+                if let dictionaryTransferMessage, !dictionaryTransferMessage.isEmpty {
+                    Text(dictionaryTransferMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(8)
@@ -433,6 +452,52 @@ struct DictionarySettingsView: View {
         dictionaryStore.reload()
         dictionarySuggestionStore.reload()
         reloadGroups()
+    }
+
+    private func exportDictionary() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "Voxt-Dictionary.json"
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let text = try dictionaryStore.exportTransferJSONString()
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            dictionaryTransferMessage = String(localized: "Dictionary exported successfully.")
+        } catch {
+            dictionaryTransferMessage = AppLocalization.format(
+                "Dictionary export failed: %@",
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func importDictionary() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            let result = try dictionaryStore.importTransferJSONString(text)
+            reloadContent()
+            dictionaryTransferMessage = AppLocalization.format(
+                "Imported %d terms and skipped %d duplicates.",
+                result.addedCount,
+                result.skippedCount
+            )
+        } catch {
+            dictionaryTransferMessage = AppLocalization.format(
+                "Dictionary import failed: %@",
+                error.localizedDescription
+            )
+        }
     }
 
     private func reloadGroups() {

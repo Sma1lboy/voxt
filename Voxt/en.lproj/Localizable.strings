@@ -502,3 +502,10 @@
 "Added" = "Added";
 "Ignored" = "Ignored";
 "Done" = "Done";
+"Dictionary…" = "Dictionary…";
+"Import" = "Import";
+"Export" = "Export";
+"Dictionary exported successfully." = "Dictionary exported successfully.";
+"Dictionary export failed: %@" = "Dictionary export failed: %@";
+"Imported %d terms and skipped %d duplicates." = "Imported %d terms and skipped %d duplicates.";
+"Dictionary import failed: %@" = "Dictionary import failed: %@";
