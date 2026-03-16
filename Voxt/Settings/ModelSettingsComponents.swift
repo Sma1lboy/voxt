@@ -3,11 +3,12 @@ import AppKit
 
 struct PromptEditorView: View {
     @Binding var text: String
+    var height: CGFloat = 100
 
     var body: some View {
         TextEditor(text: $text)
             .font(.system(size: 11, design: .monospaced))
-            .frame(height: 100)
+            .frame(height: height)
             .scrollContentBackground(.hidden)
             .padding(6)
             .background(

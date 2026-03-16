@@ -16,6 +16,7 @@ enum AppPreferenceKey {
     static let remoteLLMProviderConfigurations = "remoteLLMProviderConfigurations"
     static let translationRemoteLLMProvider = "translationRemoteLLMProvider"
     static let rewriteRemoteLLMProvider = "rewriteRemoteLLMProvider"
+    static let asrHintSettings = "asrHintSettings"
     static let modelStorageRootPath = "modelStorageRootPath"
     static let modelStorageRootBookmark = "modelStorageRootBookmark"
     static let useHfMirror = "useHfMirror"
@@ -39,6 +40,7 @@ enum AppPreferenceKey {
     static let overlayPosition = "overlayPosition"
     static let interfaceLanguage = "interfaceLanguage"
     static let translationTargetLanguage = "translationTargetLanguage"
+    static let userMainLanguageCodes = "userMainLanguageCodes"
     static let translateSelectedTextOnTranslationHotkey = "translateSelectedTextOnTranslationHotkey"
     static let voiceEndCommandEnabled = "voiceEndCommandEnabled"
     static let voiceEndCommandPreset = "voiceEndCommandPreset"
@@ -72,14 +74,17 @@ enum AppPreferenceKey {
         {{RAW_TRANSCRIPTION}}
         </RawTranscription>
 
+        Define a variable: {{USER_MAIN_LANGUAGE}}, which refers to the primary language used by the user. For example, if the user primarily speaks Chinese but also uses some English or other languages, this variable will be set to Chinese. Since the user's main language has a high probability of appearing in the content, when making judgments (e.g., on semantic meaning, punctuation rules, etc.), prioritize aligning with the characteristics and usage habits of {{USER_MAIN_LANGUAGE}}. Note that the user may use mixed languages (e.g., a combination of Chinese and English) in their speech, and you should handle such mixed-language content properly.
+
         ### Prioritized Requirements (follow in order):
-        1. Fix punctuation: Add missing commas and correct capitalization (e.g., start each new sentence with a capital letter).
-        2. Improve formatting: Use line breaks to separate distinct paragraphs or speaker turns; ensure consistent spacing around punctuation.
-        3. Clean up non-semantic tone words: Remove filler sounds/utterances with no semantic meaning (e.g., "um", "uh", "er", "ah", repeated meaningless grunts, prolonged breath sounds).
+        1. Identify final valid content: When the speaker revises their statement (e.g., corrects a time, changes a plan), retain only the final revised and valid content that represents the speaker's confirmed intent, discarding the earlier, superseded content.
+        2. Fix punctuation: Add missing commas appropriately (avoid overly frequent addition) and correct capitalization (e.g., start each new sentence with a capital letter; follow the punctuation rules of {{USER_MAIN_LANGUAGE}} for language-specific punctuation).
+        3. Improve formatting: Use line breaks to separate distinct paragraphs or speaker turns; avoid meaningless line breaks for overly simple text; ensure consistent spacing around punctuation.
+        4. Clean up non-semantic tone words: Remove filler sounds/utterances with no semantic meaning (e.g., "um", "uh", "er", "ah", repeated meaningless grunts, prolonged breath sounds; identify and remove non-semantic tone words according to the characteristics of {{USER_MAIN_LANGUAGE}}).
 
         ### Restrictions (must strictly adhere to):
-        1. Do not alter the meaning, tone, or substance of the original text.
-        2. Do not add, remove, or rephrase any content with actual semantic meaning.
+        1. Do not alter the meaning, tone, or substance of the final valid content.
+        2. Do not add, remove, or rephrase any content with actual semantic meaning in the final valid content.
         3. Do not add commentary, explanations, or additional notes.
         4. If there is mixed language, retain the original language type and semantics—do not translate any part.
 
@@ -99,6 +104,13 @@ enum AppPreferenceKey {
         <source_text>
         {{SOURCE_TEXT}}
         </source_text>
+
+        User main language:
+        <user_main_language>
+        {{USER_MAIN_LANGUAGE}}
+        </user_main_language>
+
+        The user main language represents the language(s) the user speaks. It may be a single language, multiple languages, or a mixed language (e.g., the user uses both Chinese and English in a single utterance).
 
         When translating, strictly follow these rules:
         1. Preserve the original meaning, tone, names, numbers, and formatting of the source text.
@@ -127,5 +139,15 @@ enum AppPreferenceKey {
         2. If selected source text is present, use it as the original content to rewrite, expand, shorten, reply to, or otherwise transform according to the spoken instruction.
         3. If selected source text is empty, generate the requested content directly from the spoken instruction.
         4. Return only the final text to insert, with no explanations, markdown, labels, or commentary.
+        """
+
+    static let asrUserMainLanguageTemplateVariable = "{{USER_MAIN_LANGUAGE}}"
+
+    static let defaultOpenAIASRHintPrompt = """
+        The speaker's primary language is {{USER_MAIN_LANGUAGE}}. Prioritize accurate transcription in that language while preserving mixed-language words, names, product terms, URLs, and code-like text exactly as spoken.
+        """
+
+    static let defaultGLMASRHintPrompt = """
+        The speaker's primary language is {{USER_MAIN_LANGUAGE}}. Prioritize accurate recognition in that language. Preserve names, terminology, mixed-language content, and code-like text exactly as spoken.
         """
 }
