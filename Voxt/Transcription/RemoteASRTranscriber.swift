@@ -60,11 +60,12 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         stopRequested = false
         let provider = selectedProvider
         let configuration = selectedProviderConfiguration(for: provider)
+        let hintPayload = resolvedHintPayload(for: provider, configuration: configuration)
         activeProvider = provider
 
         if provider == .doubaoASR {
             do {
-                try startDoubaoStreaming(configuration: configuration)
+                try startDoubaoStreaming(configuration: configuration, hintPayload: hintPayload)
             } catch {
                 VoxtLog.error("Doubao streaming setup failed: \(error.localizedDescription)")
                 cleanupRecorderState()
@@ -77,9 +78,9 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         if provider == .aliyunBailianASR {
             do {
                 if isAliyunQwenRealtimeModel(configuration.model) {
-                    try startAliyunQwenRealtimeStreaming(configuration: configuration)
+                    try startAliyunQwenRealtimeStreaming(configuration: configuration, hintPayload: hintPayload)
                 } else {
-                    try startAliyunFunStreaming(configuration: configuration)
+                    try startAliyunFunStreaming(configuration: configuration, hintPayload: hintPayload)
                 }
             } catch {
                 VoxtLog.error("Aliyun realtime streaming setup failed: \(error.localizedDescription)")
@@ -275,14 +276,15 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     private func transcribeRecordedAudio(fileURL: URL) async throws -> String {
         let provider = activeProvider ?? selectedProvider
         let configuration = selectedProviderConfiguration(for: provider)
+        let hintPayload = resolvedHintPayload(for: provider, configuration: configuration)
 
         switch provider {
         case .openAIWhisper:
-            return try await transcribeOpenAI(fileURL: fileURL, configuration: configuration)
+            return try await transcribeOpenAI(fileURL: fileURL, configuration: configuration, hintPayload: hintPayload)
         case .glmASR:
-            return try await transcribeGLM(fileURL: fileURL, configuration: configuration)
+            return try await transcribeGLM(fileURL: fileURL, configuration: configuration, hintPayload: hintPayload)
         case .doubaoASR:
-            return try await transcribeDoubao(fileURL: fileURL, configuration: configuration)
+            return try await transcribeDoubao(fileURL: fileURL, configuration: configuration, hintPayload: hintPayload)
         case .aliyunBailianASR:
             return try await transcribeAliyunBailian(fileURL: fileURL, configuration: configuration)
         }
@@ -321,7 +323,31 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         return RemoteModelConfigurationStore.resolvedASRConfiguration(provider: provider, stored: all)
     }
 
-    private func transcribeOpenAI(fileURL: URL, configuration: RemoteProviderConfiguration) async throws -> String {
+    private func resolvedHintPayload(
+        for provider: RemoteASRProvider,
+        configuration: RemoteProviderConfiguration
+    ) -> ResolvedASRHintPayload {
+        let settingsRaw = UserDefaults.standard.string(forKey: AppPreferenceKey.asrHintSettings)
+        let settings = ASRHintSettingsStore.resolvedSettings(
+            for: ASRHintTarget.from(engine: .remote, remoteProvider: provider),
+            rawValue: settingsRaw
+        )
+        let userLanguageCodes = UserMainLanguageOption.storedSelection(
+            from: UserDefaults.standard.string(forKey: AppPreferenceKey.userMainLanguageCodes)
+        )
+        return ASRHintResolver.resolve(
+            target: ASRHintTarget.from(engine: .remote, remoteProvider: provider),
+            settings: settings,
+            userLanguageCodes: userLanguageCodes,
+            mlxModelRepo: configuration.model
+        )
+    }
+
+    private func transcribeOpenAI(
+        fileURL: URL,
+        configuration: RemoteProviderConfiguration,
+        hintPayload: ResolvedASRHintPayload
+    ) async throws -> String {
         let endpoint = URL(string: normalizedEndpoint(configuration.endpoint, defaultValue: "https://api.openai.com/v1/audio/transcriptions"))!
         let token = configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
@@ -331,7 +357,8 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             endpoint: endpoint,
             authorizationValue: "Bearer \(token)",
             fileURL: fileURL,
-            model: configuration.model
+            model: configuration.model,
+            hintPayload: hintPayload
         )
     }
 
@@ -339,18 +366,26 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         endpoint: URL,
         authorizationValue: String,
         fileURL: URL,
-        model: String
+        model: String,
+        hintPayload: ResolvedASRHintPayload
     ) async throws -> String {
         let boundary = "Boundary-\(UUID().uuidString)"
         let effectiveModel = model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "whisper-1" : model
+        var extraFields: [String: String] = [
+            "response_format": "json",
+            "stream": "false"
+        ]
+        if let language = hintPayload.language?.trimmingCharacters(in: .whitespacesAndNewlines), !language.isEmpty {
+            extraFields["language"] = language
+        }
+        if let prompt = hintPayload.prompt?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty {
+            extraFields["prompt"] = prompt
+        }
         let body = try makeMultipartBody(
             fileURL: fileURL,
             boundary: boundary,
             model: effectiveModel,
-            extraFields: [
-                "response_format": "json",
-                "stream": "false"
-            ]
+            extraFields: extraFields
         )
 
         var request = URLRequest(url: endpoint)
@@ -392,22 +427,34 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         )
     }
 
-    private func transcribeGLM(fileURL: URL, configuration: RemoteProviderConfiguration) async throws -> String {
+    private func transcribeGLM(
+        fileURL: URL,
+        configuration: RemoteProviderConfiguration,
+        hintPayload: ResolvedASRHintPayload
+    ) async throws -> String {
         let endpoint = URL(string: normalizedEndpoint(configuration.endpoint, defaultValue: "https://open.bigmodel.cn/api/paas/v4/audio/transcriptions"))!
         let token = configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
             throw NSError(domain: "Voxt.RemoteASR", code: -2, userInfo: [NSLocalizedDescriptionKey: "GLM API key is empty."])
+        }
+        var extraFields = ["stream": "true"]
+        if let prompt = hintPayload.prompt?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty {
+            extraFields["prompt"] = prompt
         }
         return try await transcribeViaMultipartStream(
             endpoint: endpoint,
             authorizationValue: "Bearer \(token)",
             fileURL: fileURL,
             model: configuration.model,
-            extraFields: ["stream": "true"]
+            extraFields: extraFields
         )
     }
 
-    private func transcribeDoubao(fileURL: URL, configuration: RemoteProviderConfiguration) async throws -> String {
+    private func transcribeDoubao(
+        fileURL: URL,
+        configuration: RemoteProviderConfiguration,
+        hintPayload: ResolvedASRHintPayload
+    ) async throws -> String {
         let accessToken = configuration.accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let appID = configuration.appID.trimmingCharacters(in: .whitespacesAndNewlines)
         let resourceID = resolvedDoubaoResourceID(from: configuration)
@@ -423,7 +470,8 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             appID: appID,
             accessToken: accessToken,
             resourceID: resourceID,
-            endpoint: normalizedEndpoint(configuration.endpoint, defaultValue: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel")
+            endpoint: normalizedEndpoint(configuration.endpoint, defaultValue: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel"),
+            hintPayload: hintPayload
         )
     }
 
@@ -494,7 +542,10 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         throw NSError(domain: "Voxt.RemoteASR", code: -32, userInfo: [NSLocalizedDescriptionKey: "Aliyun Bailian ASR returned no text content."])
     }
 
-    private func startAliyunFunStreaming(configuration: RemoteProviderConfiguration) throws {
+    private func startAliyunFunStreaming(
+        configuration: RemoteProviderConfiguration,
+        hintPayload: ResolvedASRHintPayload
+    ) throws {
         let token = configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
             throw NSError(domain: "Voxt.RemoteASR", code: -40, userInfo: [NSLocalizedDescriptionKey: "Aliyun Bailian API key is empty."])
@@ -521,16 +572,20 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         aliyunStreamingContext = context
         receiveAliyunFunMessages(context)
 
+        var parameters: [String: Any] = [
+            "sample_rate": 16000,
+            "format": "pcm"
+        ]
+        if !hintPayload.languageHints.isEmpty {
+            parameters["language_hints"] = hintPayload.languageHints
+        }
+
         sendAliyunFunControl(
             action: "run-task",
             through: ws,
             taskID: taskID,
             model: model,
-            parameters: [
-                "sample_rate": 16000,
-                "format": "pcm",
-                "language_hints": ["zh", "en"]
-            ]
+            parameters: parameters
         ) { error in
             Task { [responseState] in
                 if let error {
@@ -692,7 +747,10 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         }
     }
 
-    private func startAliyunQwenRealtimeStreaming(configuration: RemoteProviderConfiguration) throws {
+    private func startAliyunQwenRealtimeStreaming(
+        configuration: RemoteProviderConfiguration,
+        hintPayload: ResolvedASRHintPayload
+    ) throws {
         let token = configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty else {
             throw NSError(domain: "Voxt.RemoteASR", code: -44, userInfo: [NSLocalizedDescriptionKey: "Aliyun Bailian API key is empty."])
@@ -716,7 +774,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         let context = AliyunQwenStreamingContext(ws: ws, responseState: responseState)
         aliyunQwenStreamingContext = context
         receiveAliyunQwenMessages(context)
-        sendAliyunQwenSessionUpdate(through: ws) { error in
+        sendAliyunQwenSessionUpdate(through: ws, hintPayload: hintPayload) { error in
             Task { [responseState] in
                 if let error {
                     await responseState.markCompletedWithError(error)
@@ -829,8 +887,13 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
 
     private func sendAliyunQwenSessionUpdate(
         through ws: URLSessionWebSocketTask,
+        hintPayload: ResolvedASRHintPayload,
         onError: @escaping (Error?) -> Void
     ) {
+        var transcriptionPayload: [String: Any] = [:]
+        if let language = hintPayload.language?.trimmingCharacters(in: .whitespacesAndNewlines), !language.isEmpty {
+            transcriptionPayload["language"] = language
+        }
         let payload: [String: Any] = [
             "event_id": UUID().uuidString.lowercased(),
             "type": "session.update",
@@ -838,9 +901,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 "modalities": ["text"],
                 "input_audio_format": "pcm",
                 "sample_rate": 16000,
-                "input_audio_transcription": [
-                    "language": "zh"
-                ],
+                "input_audio_transcription": transcriptionPayload,
                 "turn_detection": [
                     "type": "server_vad",
                     "threshold": 0.0,
@@ -901,7 +962,8 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         appID: String,
         accessToken: String,
         resourceID: String,
-        endpoint: String
+        endpoint: String,
+        hintPayload: ResolvedASRHintPayload
     ) async throws -> String {
         guard let wsURL = URL(string: endpoint) else {
             throw NSError(domain: "Voxt.RemoteASR", code: -5, userInfo: [NSLocalizedDescriptionKey: "Invalid Doubao endpoint URL."])
@@ -924,11 +986,12 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         }
 
         let reqID = UUID().uuidString.lowercased()
-        try await sendDoubaoFullRequest(
-            ws: ws,
-            reqID: reqID,
-            sequence: 1
-        )
+            try await sendDoubaoFullRequest(
+                ws: ws,
+                reqID: reqID,
+                sequence: 1,
+                hintPayload: hintPayload
+            )
 
         let responseState = DoubaoResponseState()
         let receiveTask = Task {
@@ -991,7 +1054,10 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         return finalText
     }
 
-    private func startDoubaoStreaming(configuration: RemoteProviderConfiguration) throws {
+    private func startDoubaoStreaming(
+        configuration: RemoteProviderConfiguration,
+        hintPayload: ResolvedASRHintPayload
+    ) throws {
         let accessToken = configuration.accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let appID = configuration.appID.trimmingCharacters(in: .whitespacesAndNewlines)
         let resourceID = resolvedDoubaoResourceID(from: configuration)
@@ -1025,26 +1091,36 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         receiveDoubaoMessages(context, endpoint: endpoint, resourceID: resourceID, appID: appID, accessToken: accessToken)
 
         let reqID = UUID().uuidString.lowercased()
+        var requestObject: [String: Any] = [
+            "reqid": reqID,
+            "model_name": "bigmodel",
+            "enable_itn": true,
+            "enable_punc": true,
+            "enable_ddc": true,
+            "show_utterances": true,
+            "enable_nonstream": false
+        ]
+        if let chineseOutputVariant = hintPayload.chineseOutputVariant {
+            requestObject["output_zh_variant"] = chineseOutputVariant
+        }
+
+        var audioObject: [String: Any] = [
+            "format": "pcm",
+            "codec": "raw",
+            "rate": 16000,
+            "bits": 16,
+            "channel": 1
+        ]
+        if let language = hintPayload.language {
+            audioObject["language"] = language
+        }
+
         let payloadObject: [String: Any] = [
             "user": [
                 "uid": "voxt"
             ],
-            "audio": [
-                "format": "pcm",
-                "codec": "raw",
-                "rate": 16000,
-                "bits": 16,
-                "channel": 1
-            ],
-            "request": [
-                "reqid": reqID,
-                "model_name": "bigmodel",
-                "enable_itn": true,
-                "enable_punc": true,
-                "enable_ddc": true,
-                "show_utterances": true,
-                "enable_nonstream": false
-            ]
+            "audio": audioObject,
+            "request": requestObject
         ]
         let rawPayload = try JSONSerialization.data(withJSONObject: payloadObject)
         let (initializationCompression, payload) = encodeDoubaoPacketPayload(rawPayload, preferGzip: true)
@@ -1316,29 +1392,39 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     private func sendDoubaoFullRequest(
         ws: URLSessionWebSocketTask,
         reqID: String,
-        sequence: Int32
+        sequence: Int32,
+        hintPayload: ResolvedASRHintPayload
     ) async throws {
+        var requestObject: [String: Any] = [
+            "reqid": reqID,
+            "model_name": "bigmodel",
+            "enable_itn": true,
+            "enable_punc": true,
+            "enable_ddc": true,
+            "show_utterances": true,
+            "enable_nonstream": false
+        ]
+        if let chineseOutputVariant = hintPayload.chineseOutputVariant {
+            requestObject["output_zh_variant"] = chineseOutputVariant
+        }
+
+        var audioObject: [String: Any] = [
+            "format": "wav",
+            "codec": "raw",
+            "rate": 16000,
+            "bits": 16,
+            "channel": 1
+        ]
+        if let language = hintPayload.language {
+            audioObject["language"] = language
+        }
+
         let payloadObject: [String: Any] = [
             "user": [
                 "uid": "voxt"
             ],
-            "audio": [
-                "format": "wav",
-                "codec": "raw",
-                "rate": 16000,
-                "bits": 16,
-                "channel": 1,
-                "language": "zh-CN"
-            ],
-            "request": [
-                "reqid": reqID,
-                "model_name": "bigmodel",
-                "enable_itn": true,
-                "enable_punc": true,
-                "enable_ddc": true,
-                "show_utterances": true,
-                "enable_nonstream": false
-            ]
+            "audio": audioObject,
+            "request": requestObject
         ]
         let rawPayload = try JSONSerialization.data(withJSONObject: payloadObject)
         let (payloadCompression, payload) = encodeDoubaoPacketPayload(rawPayload, preferGzip: true)
@@ -2326,7 +2412,12 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
 
             normalizeWAVHeaderForSnapshot(at: snapshotURL)
 
-            let preview = try await transcribeOpenAI(fileURL: snapshotURL, configuration: configuration)
+            let hintPayload = resolvedHintPayload(for: .openAIWhisper, configuration: configuration)
+            let preview = try await transcribeOpenAI(
+                fileURL: snapshotURL,
+                configuration: configuration,
+                hintPayload: hintPayload
+            )
             let normalized = preview.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !normalized.isEmpty else { return }
             if normalized != openAIPreviewLastText {

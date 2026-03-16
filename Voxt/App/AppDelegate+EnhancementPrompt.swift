@@ -4,6 +4,7 @@ import ApplicationServices
 
 extension AppDelegate {
     static let rawTranscriptionTemplateVariable = "{{RAW_TRANSCRIPTION}}"
+    static let userMainLanguageTemplateVariable = "{{USER_MAIN_LANGUAGE}}"
 
     struct EnhancementPromptResolution {
         enum Delivery {
@@ -18,7 +19,7 @@ extension AppDelegate {
     func resolveGlobalEnhancementPromptTemplate(_ prompt: String, rawTranscription: String) -> String {
         let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPrompt.isEmpty else { return AppPreferenceKey.defaultEnhancementPrompt }
-        let resolved = trimmedPrompt.replacingOccurrences(of: Self.rawTranscriptionTemplateVariable, with: rawTranscription)
+        let resolved = resolveEnhancementPromptVariables(in: trimmedPrompt, rawTranscription: rawTranscription)
         return appendDictionaryEnhancementGlossary(to: resolved, sourceText: rawTranscription)
     }
 
@@ -77,7 +78,7 @@ extension AppDelegate {
                 VoxtLog.info("Enhancement prompt source: group(url) group=\(match.groupName), pattern=\(match.pattern), url=\(normalizedActiveURL)")
                 return EnhancementPromptResolution(
                     content: appendDictionaryEnhancementGlossary(
-                        to: match.prompt.replacingOccurrences(of: Self.rawTranscriptionTemplateVariable, with: rawTranscription),
+                        to: resolveEnhancementPromptVariables(in: match.prompt, rawTranscription: rawTranscription),
                         sourceText: rawTranscription
                     ),
                     delivery: .userMessage
@@ -107,7 +108,7 @@ extension AppDelegate {
                     VoxtLog.info("Enhancement prompt source: group(app) group=\(group.name), bundleID=\(frontmostBundleID)")
                     return EnhancementPromptResolution(
                         content: appendDictionaryEnhancementGlossary(
-                            to: prompt.replacingOccurrences(of: Self.rawTranscriptionTemplateVariable, with: rawTranscription),
+                            to: resolveEnhancementPromptVariables(in: prompt, rawTranscription: rawTranscription),
                             sourceText: rawTranscription
                         ),
                         delivery: .userMessage
@@ -193,6 +194,12 @@ extension AppDelegate {
             }
         }
         return nil
+    }
+
+    private func resolveEnhancementPromptVariables(in prompt: String, rawTranscription: String) -> String {
+        prompt
+            .replacingOccurrences(of: Self.rawTranscriptionTemplateVariable, with: rawTranscription)
+            .replacingOccurrences(of: Self.userMainLanguageTemplateVariable, with: userMainLanguagePromptValue)
     }
 
     private func loadAppBranchGroups() -> [StoredAppBranchGroup] {

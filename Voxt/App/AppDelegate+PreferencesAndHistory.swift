@@ -16,6 +16,10 @@ extension AppDelegate {
         defaults.bool(forKey: AppPreferenceKey.interactionSoundsEnabled)
     }
 
+    var muteSystemAudioWhileRecording: Bool {
+        defaults.bool(forKey: AppPreferenceKey.muteSystemAudioWhileRecording)
+    }
+
     var overlayPosition: OverlayPosition {
         enumValue(forKey: AppPreferenceKey.overlayPosition, default: .bottom)
     }
@@ -26,6 +30,25 @@ extension AppDelegate {
 
     var translationTargetLanguage: TranslationTargetLanguage {
         enumValue(forKey: AppPreferenceKey.translationTargetLanguage, default: .english)
+    }
+
+    var userMainLanguageCodes: [String] {
+        UserMainLanguageOption.storedSelection(
+            from: defaults.string(forKey: AppPreferenceKey.userMainLanguageCodes)
+        )
+    }
+
+    var userMainLanguage: UserMainLanguageOption {
+        let selectedCodes = userMainLanguageCodes
+        if let firstCode = selectedCodes.first,
+           let option = UserMainLanguageOption.option(for: firstCode) {
+            return option
+        }
+        return UserMainLanguageOption.fallbackOption()
+    }
+
+    var userMainLanguagePromptValue: String {
+        userMainLanguage.promptName
     }
 
     var translateSelectedTextOnTranslationHotkey: Bool {

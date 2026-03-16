@@ -8,9 +8,11 @@ struct GeneralSettingsView: View {
     @AppStorage(AppPreferenceKey.selectedInputDeviceID) private var selectedInputDeviceIDRaw = 0
     @AppStorage(AppPreferenceKey.interactionSoundsEnabled) private var interactionSoundsEnabled = true
     @AppStorage(AppPreferenceKey.interactionSoundPreset) private var interactionSoundPresetRaw = InteractionSoundPreset.soft.rawValue
+    @AppStorage(AppPreferenceKey.muteSystemAudioWhileRecording) private var muteSystemAudioWhileRecording = false
     @AppStorage(AppPreferenceKey.overlayPosition) private var overlayPositionRaw = OverlayPosition.bottom.rawValue
     @AppStorage(AppPreferenceKey.interfaceLanguage) private var interfaceLanguageRaw = AppInterfaceLanguage.system.rawValue
     @AppStorage(AppPreferenceKey.translationTargetLanguage) private var translationTargetLanguageRaw = TranslationTargetLanguage.english.rawValue
+    @AppStorage(AppPreferenceKey.userMainLanguageCodes) private var userMainLanguageCodesRaw = UserMainLanguageOption.defaultStoredSelectionValue
     @AppStorage(AppPreferenceKey.translateSelectedTextOnTranslationHotkey) private var translateSelectedTextOnTranslationHotkey = true
     @AppStorage(AppPreferenceKey.autoCopyWhenNoFocusedInput) private var autoCopyWhenNoFocusedInput = false
     @AppStorage(AppPreferenceKey.appEnhancementEnabled) private var appEnhancementEnabled = false
@@ -34,6 +36,8 @@ struct GeneralSettingsView: View {
     @State private var modelStorageDisplayPath = ""
     @State private var modelStorageSelectionError: String?
     @State private var configurationTransferMessage: String?
+    @State private var isUserMainLanguageSheetPresented = false
+    @State private var systemAudioPermissionMessage: String?
 
     private var selectedInputDeviceID: AudioDeviceID {
         AudioDeviceID(selectedInputDeviceIDRaw)
@@ -51,6 +55,26 @@ struct GeneralSettingsView: View {
             get: { VoxtNetworkSession.ProxyScheme(rawValue: customProxySchemeRaw) ?? .http },
             set: { customProxySchemeRaw = $0.rawValue }
         )
+    }
+
+    private var selectedUserMainLanguageCodes: [String] {
+        UserMainLanguageOption.storedSelection(from: userMainLanguageCodesRaw)
+    }
+
+    private var userMainLanguageSummary: String {
+        let codes = selectedUserMainLanguageCodes
+        guard let primaryCode = codes.first,
+              let primaryOption = UserMainLanguageOption.option(for: primaryCode)
+        else {
+            return UserMainLanguageOption.fallbackOption().title()
+        }
+
+        if codes.count == 1 {
+            return primaryOption.title()
+        }
+
+        let format = AppLocalization.localizedString("%@ + %d more")
+        return String(format: format, primaryOption.title(), codes.count - 1)
     }
 
     var body: some View {
@@ -107,6 +131,17 @@ struct GeneralSettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
+                    Toggle("Mute other media audio while recording", isOn: $muteSystemAudioWhileRecording)
+                    Text("When enabled, Voxt requests system audio recording permission so it can mute other apps' media audio during recording and restore it after transcription completes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if let systemAudioPermissionMessage {
+                        Text(systemAudioPermissionMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     HStack(alignment: .firstTextBaseline) {
                         Text("Sound Preset")
                             .foregroundStyle(.secondary)
@@ -159,14 +194,14 @@ struct GeneralSettingsView: View {
             }
 
             GroupBox {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Interface Language")
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Languages")
                         .font(.headline)
 
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("Language")
-                            .foregroundStyle(.secondary)
-                        Spacer()
+                    languageSettingBlock(
+                        title: "Interface Language",
+                        description: "Supports English, Chinese, and Japanese. Unsupported system languages default to English."
+                    ) {
                         Picker("Language", selection: $interfaceLanguageRaw) {
                             ForEach(AppInterfaceLanguage.allCases) { language in
                                 Text(language.titleKey).tag(language.rawValue)
@@ -177,23 +212,33 @@ struct GeneralSettingsView: View {
                         .frame(width: 220, alignment: .trailing)
                     }
 
-                    Text("Supports English, Chinese, and Japanese. Unsupported system languages default to English.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-            }
+                    Divider()
 
-            GroupBox {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Translation")
-                        .font(.headline)
+                    languageSettingBlock(
+                        title: "User Main Language",
+                        description: "Used for the {{USER_MAIN_LANGUAGE}} prompt variable in enhancement and translation. You can select multiple languages and mark one as primary."
+                    ) {
+                        Button {
+                            isUserMainLanguageSheetPresented = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(userMainLanguageSummary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
 
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("Target language")
-                            .foregroundStyle(.secondary)
-                        Spacer()
+                    Divider()
+
+                    languageSettingBlock(
+                        title: "Translation",
+                        description: "Used by the dedicated translation shortcut (fn + Left Shift)."
+                    ) {
                         Picker("Target language", selection: $translationTargetLanguageRaw) {
                             ForEach(TranslationTargetLanguage.allCases) { language in
                                 Text(language.titleKey).tag(language.rawValue)
@@ -203,10 +248,6 @@ struct GeneralSettingsView: View {
                         .labelsHidden()
                         .frame(width: 220, alignment: .trailing)
                     }
-
-                    Text("Used by the dedicated translation shortcut (fn + Left Shift).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
@@ -460,11 +501,37 @@ struct GeneralSettingsView: View {
         .onChange(of: autoCheckForUpdates) { _, newValue in
             appUpdateManager.automaticallyChecksForUpdates = newValue
         }
+        .onChange(of: muteSystemAudioWhileRecording) { _, newValue in
+            guard newValue else {
+                systemAudioPermissionMessage = nil
+                return
+            }
+
+            let status = SystemAudioCapturePermission.authorizationStatus()
+            if status == .authorized {
+                systemAudioPermissionMessage = nil
+                return
+            }
+
+            SystemAudioCapturePermission.requestAccess { granted in
+                systemAudioPermissionMessage = granted
+                    ? AppLocalization.localizedString("System audio recording permission granted.")
+                    : AppLocalization.localizedString("System audio recording permission is required for this feature. You can grant it in Settings > Permissions.")
+            }
+        }
         .onChange(of: interfaceLanguageRaw) { _, _ in
             NotificationCenter.default.post(name: .voxtInterfaceLanguageDidChange, object: nil)
         }
         .onChange(of: modelStorageRootPath) { _, _ in
             refreshModelStorageDisplayPath()
+        }
+        .sheet(isPresented: $isUserMainLanguageSheetPresented) {
+            UserMainLanguageSelectionSheet(
+                selectedCodes: selectedUserMainLanguageCodes,
+                localeIdentifier: interfaceLanguage.localeIdentifier
+            ) { updatedCodes in
+                userMainLanguageCodesRaw = UserMainLanguageOption.storageValue(for: updatedCodes)
+            }
         }
         .id(interfaceLanguageRaw)
     }
@@ -488,6 +555,30 @@ struct GeneralSettingsView: View {
 
     private var interactionSoundPreset: InteractionSoundPreset {
         InteractionSoundPreset(rawValue: interactionSoundPresetRaw) ?? .soft
+    }
+
+    private var interfaceLanguage: AppInterfaceLanguage {
+        AppInterfaceLanguage(rawValue: interfaceLanguageRaw) ?? .system
+    }
+
+    @ViewBuilder
+    private func languageSettingBlock<Control: View>(
+        title: LocalizedStringKey,
+        description: LocalizedStringKey,
+        @ViewBuilder control: () -> Control
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(title)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                control()
+            }
+
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func chooseModelStorageDirectory() {
@@ -556,5 +647,161 @@ struct GeneralSettingsView: View {
         } catch {
             configurationTransferMessage = String(format: NSLocalizedString("Configuration import failed: %@", comment: ""), error.localizedDescription)
         }
+    }
+}
+
+private struct UserMainLanguageSelectionSheet: View {
+    let localeIdentifier: String
+    let onSave: ([String]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+    @State private var draftCodes: [String]
+
+    init(
+        selectedCodes: [String],
+        localeIdentifier: String,
+        onSave: @escaping ([String]) -> Void
+    ) {
+        self.localeIdentifier = localeIdentifier
+        self.onSave = onSave
+        _draftCodes = State(initialValue: UserMainLanguageOption.sanitizedSelection(selectedCodes))
+    }
+
+    private var locale: Locale {
+        Locale(identifier: localeIdentifier)
+    }
+
+    private var filteredOptions: [UserMainLanguageOption] {
+        UserMainLanguageOption.all
+            .filter { $0.matches(searchText, locale: locale) }
+            .sorted { lhs, rhs in
+                let lhsIndex = draftCodes.firstIndex(of: lhs.code)
+                let rhsIndex = draftCodes.firstIndex(of: rhs.code)
+                switch (lhsIndex, rhsIndex) {
+                case let (left?, right?):
+                    return left < right
+                case (.some, .none):
+                    return true
+                case (.none, .some):
+                    return false
+                case (.none, .none):
+                    return lhs.title(locale: locale).localizedCaseInsensitiveCompare(rhs.title(locale: locale)) == .orderedAscending
+                }
+            }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Select User Languages")
+                .font(.title3.weight(.semibold))
+
+            TextField("Search languages", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    ForEach(filteredOptions) { option in
+                        UserMainLanguageRow(
+                            option: option,
+                            isSelected: draftCodes.contains(option.code),
+                            isPrimary: draftCodes.first == option.code,
+                            locale: locale,
+                            onToggle: { toggle(option) },
+                            onSetPrimary: { setPrimary(option) }
+                        )
+                    }
+                }
+            }
+            .frame(minHeight: 320)
+
+            if filteredOptions.isEmpty {
+                Text("No languages found.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    dismiss()
+                }
+                Button("Save") {
+                    onSave(draftCodes)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(draftCodes.isEmpty)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 20)
+        .frame(width: 460, height: 520)
+    }
+
+    private func toggle(_ option: UserMainLanguageOption) {
+        if let index = draftCodes.firstIndex(of: option.code) {
+            draftCodes.remove(at: index)
+            if draftCodes.isEmpty {
+                draftCodes = [option.code]
+            }
+            return
+        }
+
+        draftCodes.append(option.code)
+    }
+
+    private func setPrimary(_ option: UserMainLanguageOption) {
+        guard let index = draftCodes.firstIndex(of: option.code) else { return }
+        let code = draftCodes.remove(at: index)
+        draftCodes.insert(code, at: 0)
+    }
+}
+
+private struct UserMainLanguageRow: View {
+    let option: UserMainLanguageOption
+    let isSelected: Bool
+    let isPrimary: Bool
+    let locale: Locale
+    let onToggle: () -> Void
+    let onSetPrimary: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(action: onToggle) {
+                HStack(spacing: 10) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(option.title(locale: locale))
+                        Text(option.promptName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isSelected {
+                Button(action: onSetPrimary) {
+                    Image(systemName: isPrimary ? "star.fill" : "star")
+                        .foregroundStyle(isPrimary ? Color.yellow : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(String(localized: "Set as primary language"))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 }

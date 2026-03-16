@@ -15,6 +15,7 @@ struct SettingsView: View {
     @ObservedObject var appUpdateManager: AppUpdateManager
     @AppStorage(AppPreferenceKey.interfaceLanguage) private var interfaceLanguageRaw = AppInterfaceLanguage.system.rawValue
     @AppStorage(AppPreferenceKey.appEnhancementEnabled) private var appEnhancementEnabled = false
+    @AppStorage(AppPreferenceKey.muteSystemAudioWhileRecording) private var muteSystemAudioWhileRecording = false
     @State private var selectedTab: SettingsTab
     @State private var hasMissingPermissions = false
     @State private var missingModelConfigurationIssues: [ConfigurationTransferManager.MissingConfigurationIssue] = []
@@ -117,6 +118,9 @@ struct SettingsView: View {
             if !isEnabled, selectedTab == .appEnhancement {
                 selectedTab = .model
             }
+        }
+        .onChange(of: muteSystemAudioWhileRecording) { _, _ in
+            refreshPermissionBadge()
         }
         .alert(
             String(localized: "Update Information"),
@@ -227,12 +231,14 @@ struct SettingsView: View {
         let speechGranted = SFSpeechRecognizer.authorizationStatus() == .authorized
         let accessibilityGranted = AccessibilityPermissionManager.isTrusted()
         let inputMonitoringGranted: Bool
+        let requiresSystemAudioCapture = UserDefaults.standard.bool(forKey: AppPreferenceKey.muteSystemAudioWhileRecording)
+        let systemAudioCaptureGranted = !requiresSystemAudioCapture || SystemAudioCapturePermission.authorizationStatus() == .authorized
         if #available(macOS 10.15, *) {
             inputMonitoringGranted = CGPreflightListenEventAccess()
         } else {
             inputMonitoringGranted = true
         }
-        hasMissingPermissions = !(microphoneGranted && speechGranted && accessibilityGranted && inputMonitoringGranted)
+        hasMissingPermissions = !(microphoneGranted && speechGranted && accessibilityGranted && inputMonitoringGranted && systemAudioCaptureGranted)
     }
 
     private func refreshModelConfigurationBadge() {

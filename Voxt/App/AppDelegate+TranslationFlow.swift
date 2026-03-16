@@ -402,6 +402,7 @@ extension AppDelegate {
             .replacingOccurrences(of: "{target_language}", with: targetLanguage.instructionName) // backward-compatible
             .replacingOccurrences(of: "{{TARGET_LANGUAGE}}", with: targetLanguage.instructionName)
             .replacingOccurrences(of: "{{SOURCE_TEXT}}", with: sourceText)
+            .replacingOccurrences(of: AppDelegate.userMainLanguageTemplateVariable, with: userMainLanguagePromptValue)
 
         let enforcement = strict
             ? """
