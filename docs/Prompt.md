@@ -464,6 +464,7 @@ Voxt currently includes the following built-in template variables:
 | Variable | Purpose | Typical Use |
 | --- | --- | --- |
 | `{{RAW_TRANSCRIPTION}}` | Raw transcription text before enhancement | Text enhancement, App Branch |
+| `{{USER_MAIN_LANGUAGE}}` | The user's resolved primary spoken language or language mix | Text enhancement, translation, App Branch, ASR hint prompts |
 | `{{TARGET_LANGUAGE}}` | Currently selected translation target language, such as English or Japanese | Translation |
 | `{{SOURCE_TEXT}}` | Source text that will be translated or rewritten | Translation, rewrite |
 | `{{DICTATED_PROMPT}}` | Spoken rewrite / generation instruction captured from dictation | Rewrite |
@@ -471,6 +472,7 @@ Voxt currently includes the following built-in template variables:
 Additional notes:
 
 - `{{RAW_TRANSCRIPTION}}` is mainly used for post-recognition cleanup
+- `{{USER_MAIN_LANGUAGE}}` is resolved from the user's selected main language settings and may represent one or multiple languages
 - `{{SOURCE_TEXT}}` is mainly used when existing text needs to be processed
 - `{{DICTATED_PROMPT}}` represents the user's spoken intent, not the final output text
 - `{{TARGET_LANGUAGE}}` is injected automatically from the app's current translation target setting
@@ -492,14 +494,17 @@ Here is the raw transcription to process:
 {{RAW_TRANSCRIPTION}}
 </RawTranscription>
 
+Define a variable: {{USER_MAIN_LANGUAGE}}, which refers to the primary language used by the user. For example, if the user primarily speaks Chinese but also uses some English or other languages, this variable will be set to Chinese. Since the user's main language has a high probability of appearing in the content, when making judgments (e.g., on semantic meaning, punctuation rules, etc.), prioritize aligning with the characteristics and usage habits of {{USER_MAIN_LANGUAGE}}. Note that the user may use mixed languages (e.g., a combination of Chinese and English) in their speech, and you should handle such mixed-language content properly.
+
 ### Prioritized Requirements (follow in order):
-1. Fix punctuation: Add missing commas and correct capitalization (e.g., start each new sentence with a capital letter).
-2. Improve formatting: Use line breaks to separate distinct paragraphs or speaker turns; ensure consistent spacing around punctuation.
-3. Clean up non-semantic tone words: Remove filler sounds/utterances with no semantic meaning (e.g., "um", "uh", "er", "ah", repeated meaningless grunts, prolonged breath sounds).
+1. Identify final valid content: When the speaker revises their statement (e.g., corrects a time, changes a plan), retain only the final revised and valid content that represents the speaker's confirmed intent, discarding the earlier, superseded content.
+2. Fix punctuation: Add missing commas appropriately (avoid overly frequent addition) and correct capitalization (e.g., start each new sentence with a capital letter; follow the punctuation rules of {{USER_MAIN_LANGUAGE}} for language-specific punctuation).
+3. Improve formatting: Use line breaks to separate distinct paragraphs or speaker turns; avoid meaningless line breaks for overly simple text; ensure consistent spacing around punctuation.
+4. Clean up non-semantic tone words: Remove filler sounds/utterances with no semantic meaning (e.g., "um", "uh", "er", "ah", repeated meaningless grunts, prolonged breath sounds; identify and remove non-semantic tone words according to the characteristics of {{USER_MAIN_LANGUAGE}}).
 
 ### Restrictions (must strictly adhere to):
-1. Do not alter the meaning, tone, or substance of the original text.
-2. Do not add, remove, or rephrase any content with actual semantic meaning.
+1. Do not alter the meaning, tone, or substance of the final valid content.
+2. Do not add, remove, or rephrase any content with actual semantic meaning in the final valid content.
 3. Do not add commentary, explanations, or additional notes.
 4. If there is mixed language, retain the original language type and semantics—do not translate any part.
 
@@ -507,18 +512,26 @@ Here is the raw transcription to process:
 Return only the cleaned-up transcription text (no extra content, tags, or explanations).
 ```
 
-### Supported Variable
+### Supported Variables
 
 - `{{RAW_TRANSCRIPTION}}`
+- `{{USER_MAIN_LANGUAGE}}`
+
+### Runtime Notes
+
+- If an App Branch prompt matches the current App or URL, that prompt may replace the global enhancement prompt for the enhancement stage.
+- If dictionary recognition finds relevant terms, Voxt appends a runtime glossary block that prefers exact dictionary spellings when the transcript context matches.
 
 ### Usage Guidelines
 
 - Good for lightweight cleanup, not strong rewriting
 - Recommended goals to emphasize:
+  - keep only the speaker's final confirmed revision when they self-correct
   - fix punctuation
   - split paragraphs
   - remove filler words with no semantic meaning
   - preserve the original language
+  - align punctuation and cleanup decisions with `{{USER_MAIN_LANGUAGE}}`
 - Not recommended:
   - translation
   - summarization
@@ -528,7 +541,7 @@ Return only the cleaned-up transcription text (no extra content, tags, or explan
 ### Recommended Writing Style
 
 - Make the input source explicit: tell the model it is processing raw transcription text
-- Define priority clearly: formatting first, filler cleanup second
+- Define priority clearly: final valid content first, then punctuation / formatting, then filler cleanup
 - Define hard constraints: do not alter meaning, do not translate, do not explain
 - Define output clearly: return only the final text
 
@@ -551,6 +564,13 @@ Source text to be translated:
 {{SOURCE_TEXT}}
 </source_text>
 
+User main language:
+<user_main_language>
+{{USER_MAIN_LANGUAGE}}
+</user_main_language>
+
+The user main language represents the language(s) the user speaks. It may be a single language, multiple languages, or a mixed language (e.g., the user uses both Chinese and English in a single utterance).
+
 When translating, strictly follow these rules:
 1. Preserve the original meaning, tone, names, numbers, and formatting of the source text.
 2. Translate short text even if it contains only linguistic content.
@@ -563,6 +583,7 @@ Return only the translated text as your response.
 ### Supported Variables
 
 - `{{TARGET_LANGUAGE}}`
+- `{{USER_MAIN_LANGUAGE}}`
 - `{{SOURCE_TEXT}}`
 
 ### Runtime Enforcement
@@ -578,6 +599,8 @@ When translation is actually executed, Voxt appends an additional layer of manda
 - Strict retry mode:
   - if the first output looks untranslated, Voxt retries with stricter translation rules
   - it more strongly enforces "do not copy source-language wording"
+- Dictionary guidance:
+  - if the source text hits dictionary terms, Voxt appends a runtime glossary instructing the model to preserve exact spellings unless translation clearly requires otherwise
 
 > [!IMPORTANT]
 > This means the final translation prompt is not only the text you wrote. Voxt appends an extra runtime layer that enforces "must translate" and "return only the result".
@@ -638,6 +661,20 @@ Rules:
 - `{{DICTATED_PROMPT}}`
 - `{{SOURCE_TEXT}}`
 
+### Runtime Enforcement
+
+When rewrite is executed, Voxt may append additional runtime constraints after the base prompt:
+
+- Direct-answer mode:
+  - if there is no selected source text, Voxt explicitly tells the model to treat the spoken instruction as the full request and to output the actual answer directly
+- Structured answer mode:
+  - when the rewrite answer card expects structured output, Voxt temporarily requires a JSON object with exactly `title` and `content`
+  - `content` must contain the final answer text only
+- Non-empty retry:
+  - if a previous structured answer returned empty content, Voxt retries once with a stronger non-empty requirement
+- Dictionary guidance:
+  - if relevant terms match the dictionary, Voxt appends a glossary block asking the model to prefer exact spellings in the final output
+
 ### Usage Guidelines
 
 - Clearly distinguish the spoken instruction from the source text
@@ -665,9 +702,10 @@ Compared with the global text enhancement prompt:
 - an App Branch matched prompt currently tends to participate more like user-side content
 - App Branch is better suited to context-specific rules, for example different app-specific style, terminology, or formatting
 
-### Supported Variable
+### Supported Variables
 
 - `{{RAW_TRANSCRIPTION}}`
+- `{{USER_MAIN_LANGUAGE}}`
 
 ### What It Is Good For
 
@@ -698,6 +736,38 @@ Compared with the global text enhancement prompt:
 
 > [!TIP]
 > App Branch prompts are best for solving "different contexts require different speaking styles / output rules". They are not a replacement for a full translation or generation prompt system.
+
+## ASR Hint Prompts
+
+ASR hint prompts are separate from LLM enhancement / translation / rewrite prompts. They are provider-specific recognition hints used before text enters the main LLM pipeline.
+
+Current behavior in code:
+
+- `OpenAI Whisper` supports a short prompt template plus language selection
+- `GLM ASR` supports a short prompt template
+- `MLX Audio`, `Doubao ASR`, and `Aliyun Bailian ASR` currently use resolved language hints only and do not apply a custom prompt template
+
+### Supported Variable
+
+- `{{USER_MAIN_LANGUAGE}}`
+
+### Default OpenAI ASR Hint Prompt
+
+```text
+The speaker's primary language is {{USER_MAIN_LANGUAGE}}. Prioritize accurate transcription in that language while preserving mixed-language words, names, product terms, URLs, and code-like text exactly as spoken.
+```
+
+### Default GLM ASR Hint Prompt
+
+```text
+The speaker's primary language is {{USER_MAIN_LANGUAGE}}. Prioritize accurate recognition in that language. Preserve names, terminology, mixed-language content, and code-like text exactly as spoken.
+```
+
+### Practical Notes
+
+- Keep ASR hint prompts short; they are recognition bias, not generation prompts
+- `Doubao ASR` uses language hints and automatically follows the selected simplified or traditional Chinese main language variant
+- `Aliyun Bailian ASR` derives language hints from the user's selected main languages
 
 ## Prompt Writing Guidelines
 

@@ -473,6 +473,7 @@ Voxt 当前内置的模板变量如下：
 | 变量 | 用途 | 适用位置 |
 | --- | --- | --- |
 | `{{RAW_TRANSCRIPTION}}` | 增强前的原始转录文本 | 文本增强、App Branch |
+| `{{USER_MAIN_LANGUAGE}}` | 用户解析后的主要口语语言或语言组合 | 文本增强、翻译、App Branch、ASR hint prompt |
 | `{{TARGET_LANGUAGE}}` | 当前选择的翻译目标语言，例如 English / Japanese | 翻译 |
 | `{{SOURCE_TEXT}}` | 将要被翻译或改写的原始文本 | 翻译、转写 |
 | `{{DICTATED_PROMPT}}` | 用户口述出来的改写 / 生成指令 | 转写 |
@@ -480,6 +481,7 @@ Voxt 当前内置的模板变量如下：
 补充说明：
 
 - `{{RAW_TRANSCRIPTION}}` 主要用于“识别后润色”场景
+- `{{USER_MAIN_LANGUAGE}}` 来自用户主语言设置，可能是单语言，也可能是多语言组合
 - `{{SOURCE_TEXT}}` 主要用于“拿已有文本做处理”的场景
 - `{{DICTATED_PROMPT}}` 代表用户说出来的意图，不是最终要输出的文本
 - `{{TARGET_LANGUAGE}}` 由应用当前翻译目标语言设置自动注入
@@ -501,14 +503,17 @@ Here is the raw transcription to process:
 {{RAW_TRANSCRIPTION}}
 </RawTranscription>
 
+Define a variable: {{USER_MAIN_LANGUAGE}}, which refers to the primary language used by the user. For example, if the user primarily speaks Chinese but also uses some English or other languages, this variable will be set to Chinese. Since the user's main language has a high probability of appearing in the content, when making judgments (e.g., on semantic meaning, punctuation rules, etc.), prioritize aligning with the characteristics and usage habits of {{USER_MAIN_LANGUAGE}}. Note that the user may use mixed languages (e.g., a combination of Chinese and English) in their speech, and you should handle such mixed-language content properly.
+
 ### Prioritized Requirements (follow in order):
-1. Fix punctuation: Add missing commas and correct capitalization (e.g., start each new sentence with a capital letter).
-2. Improve formatting: Use line breaks to separate distinct paragraphs or speaker turns; ensure consistent spacing around punctuation.
-3. Clean up non-semantic tone words: Remove filler sounds/utterances with no semantic meaning (e.g., "um", "uh", "er", "ah", repeated meaningless grunts, prolonged breath sounds).
+1. Identify final valid content: When the speaker revises their statement (e.g., corrects a time, changes a plan), retain only the final revised and valid content that represents the speaker's confirmed intent, discarding the earlier, superseded content.
+2. Fix punctuation: Add missing commas appropriately (avoid overly frequent addition) and correct capitalization (e.g., start each new sentence with a capital letter; follow the punctuation rules of {{USER_MAIN_LANGUAGE}} for language-specific punctuation).
+3. Improve formatting: Use line breaks to separate distinct paragraphs or speaker turns; avoid meaningless line breaks for overly simple text; ensure consistent spacing around punctuation.
+4. Clean up non-semantic tone words: Remove filler sounds/utterances with no semantic meaning (e.g., "um", "uh", "er", "ah", repeated meaningless grunts, prolonged breath sounds; identify and remove non-semantic tone words according to the characteristics of {{USER_MAIN_LANGUAGE}}).
 
 ### Restrictions (must strictly adhere to):
-1. Do not alter the meaning, tone, or substance of the original text.
-2. Do not add, remove, or rephrase any content with actual semantic meaning.
+1. Do not alter the meaning, tone, or substance of the final valid content.
+2. Do not add, remove, or rephrase any content with actual semantic meaning in the final valid content.
 3. Do not add commentary, explanations, or additional notes.
 4. If there is mixed language, retain the original language type and semantics—do not translate any part.
 
@@ -519,15 +524,23 @@ Return only the cleaned-up transcription text (no extra content, tags, or explan
 ### 支持变量
 
 - `{{RAW_TRANSCRIPTION}}`
+- `{{USER_MAIN_LANGUAGE}}`
+
+### 运行时说明
+
+- 如果当前 App 或 URL 命中了 App Branch，增强阶段实际使用的 prompt 可能会被该分组 prompt 替换。
+- 如果词典识别到了相关术语，Voxt 会在运行时自动追加 glossary guidance，要求模型优先使用词典里的准确拼写。
 
 ### 使用规范
 
 - 适合做“轻整理”，不适合做“强改写”
 - 推荐强调这些目标：
+  - 用户自我修正时，只保留最终确认版本
   - 补标点
   - 分段
   - 去除无语义语气词
   - 保留原语言
+  - 标点和语气词清理尽量贴合 `{{USER_MAIN_LANGUAGE}}`
 - 不建议加入这些要求：
   - 翻译
   - 总结
@@ -537,7 +550,7 @@ Return only the cleaned-up transcription text (no extra content, tags, or explan
 ### 推荐写法
 
 - 明确输入来源：告诉模型这是“原始转录文本”
-- 明确优先级：先修正格式，再清理语气词
+- 明确优先级：先确定最终有效内容，再处理标点 / 格式，最后清理语气词
 - 明确限制：不要改语义、不要翻译、不要解释
 - 明确输出：只返回最终文本
 
@@ -560,6 +573,13 @@ Source text to be translated:
 {{SOURCE_TEXT}}
 </source_text>
 
+User main language:
+<user_main_language>
+{{USER_MAIN_LANGUAGE}}
+</user_main_language>
+
+The user main language represents the language(s) the user speaks. It may be a single language, multiple languages, or a mixed language (e.g., the user uses both Chinese and English in a single utterance).
+
 When translating, strictly follow these rules:
 1. Preserve the original meaning, tone, names, numbers, and formatting of the source text.
 2. Translate short text even if it contains only linguistic content.
@@ -572,6 +592,7 @@ Return only the translated text as your response.
 ### 支持变量
 
 - `{{TARGET_LANGUAGE}}`
+- `{{USER_MAIN_LANGUAGE}}`
 - `{{SOURCE_TEXT}}`
 
 ### 运行时补充规则
@@ -587,6 +608,8 @@ Return only the translated text as your response.
 - 严格重试模式：
   - 如果第一轮结果看起来“像没翻译”，Voxt 会用更严格的规则重试
   - 会更强地要求“不要复制源语言措辞”
+- 词典 guidance：
+  - 如果源文本命中了词典词，Voxt 会追加 glossary 规则，要求模型尽量保留这些术语的准确拼写，除非翻译语义明确要求变化
 
 > [!IMPORTANT]
 > 这意味着翻译提示词最终不是只用你写的那一段，Voxt 还会在运行时追加一层“必须翻译、只返回结果”的约束。
@@ -647,6 +670,20 @@ Rules:
 - `{{DICTATED_PROMPT}}`
 - `{{SOURCE_TEXT}}`
 
+### 运行时约束
+
+真正执行转写时，Voxt 可能会在基础 prompt 后追加额外约束：
+
+- 直接回答模式：
+  - 如果当前没有选中文本，Voxt 会明确告诉模型“把口述指令当成完整请求”，直接输出真正答案
+- 结构化答案模式：
+  - 当转写答案卡片要求结构化输出时，Voxt 会临时要求模型返回一个只包含 `title` 和 `content` 的 JSON 对象
+  - `content` 必须只包含最终答案文本
+- 非空重试：
+  - 如果上一次结构化结果返回了空 `content`，Voxt 会再重试一次，并强制要求返回非空内容
+- 词典 guidance：
+  - 如果命中了相关词典术语，Voxt 会追加 glossary guidance，要求最终输出优先采用词典里的准确拼写
+
 ### 使用规范
 
 - 要把口述指令和原文角色区分清楚
@@ -677,6 +714,7 @@ App Branch 提示词本质上也是“文本增强提示词”，但它会根据
 ### 支持变量
 
 - `{{RAW_TRANSCRIPTION}}`
+- `{{USER_MAIN_LANGUAGE}}`
 
 ### 适合写什么
 
@@ -707,6 +745,38 @@ App Branch 提示词本质上也是“文本增强提示词”，但它会根据
 
 > [!TIP]
 > App Branch 提示词最适合解决“不同上下文有不同说话风格 / 输出规范”的问题，不适合替代完整的翻译或生成提示词体系。
+
+## ASR Hint Prompt
+
+ASR hint prompt 和增强 / 翻译 / 转写用的 LLM prompt 不是一回事。它是识别阶段给特定 ASR 服务商的“识别偏置提示”。
+
+当前代码里的行为是：
+
+- `OpenAI Whisper` 支持简短 prompt 模板和语言设置
+- `GLM ASR` 支持简短 prompt 模板
+- `MLX Audio`、`Doubao ASR`、`Aliyun Bailian ASR` 当前主要使用语言提示，不走自定义 prompt 模板
+
+### 支持变量
+
+- `{{USER_MAIN_LANGUAGE}}`
+
+### 默认 OpenAI ASR Hint Prompt
+
+```text
+The speaker's primary language is {{USER_MAIN_LANGUAGE}}. Prioritize accurate transcription in that language while preserving mixed-language words, names, product terms, URLs, and code-like text exactly as spoken.
+```
+
+### 默认 GLM ASR Hint Prompt
+
+```text
+The speaker's primary language is {{USER_MAIN_LANGUAGE}}. Prioritize accurate recognition in that language. Preserve names, terminology, mixed-language content, and code-like text exactly as spoken.
+```
+
+### 实际使用建议
+
+- ASR hint prompt 应该保持很短，它是识别偏置，不是生成式 prompt
+- `Doubao ASR` 主要依赖语言提示；中文输出会自动跟随你选的简体 / 繁体主语言
+- `Aliyun Bailian ASR` 会根据用户主语言列表生成语言 hints
 
 ## 提示词使用规范
 

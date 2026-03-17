@@ -24,6 +24,7 @@ macOS 菜单栏语音输入与翻译工具。按住说话，松开即贴，AI转
 - 边说边转文字，实时查看文本内容
 - 结果增强，去除语气词，自动添加标点符号，Prompt 自定义，你的输出你来决定！
 - App 分组，不同的 App 或网址 设置不同的增强规则（自定义 Prompt）Coding、Chat、Email 。。。
+- 支持个人词典，可把命中的术语注入提示词，并在高置信度场景下把近似词自动纠正为准确写法
 - 多语言支持，混合语言输入无压力，想怎么说，就怎么说。
 
 **沟通无障碍，说完就翻译** `fn+shift`
@@ -37,6 +38,7 @@ macOS 菜单栏语音输入与翻译工具。按住说话，松开即贴，AI转
 
 - “帮我写一篇 200 字的自我介绍模板吧” 你的输入就是 Prompt，结果会自动输入编辑器
 - 选中文本转写 ～ “帮我把这段文本精简下，语句要通顺” 。。。
+- 可选“转写答案卡片”，在当前没有可写输入框时也能稳定查看和接收长结果
 - AI 助手，不止止语音输入
 
 [![][back-to-top]](#readme-top)
@@ -257,7 +259,7 @@ https://raw.githubusercontent.com/hehehai/voxt/refs/heads/main/docs/RemoteModel.
 
 ### 配置管理
 
-- 支持导出当前的通用、模型、App Branch、快捷键配置到 JSON
+- 支持导出当前的通用、模型、词典、语音结束命令、App Branch、快捷键配置到 JSON
 - 支持从 JSON 导入配置，快速迁移到另一台 Mac
 - 敏感字段在导出时会被占位符替换，导入后需要重新填写
 
@@ -271,6 +273,7 @@ https://raw.githubusercontent.com/hehehai/voxt/refs/heads/main/docs/RemoteModel.
 
 - 选择输入麦克风设备
 - 开关交互音效
+- 可选在录音时自动静音其他 App 的媒体音频
 - 切换交互音效预设，并可直接试听
 
 这部分决定的是“你从哪里录音”和“录音开始 / 结束时是否有声音反馈”。如果你有多个麦克风、外接声卡或特定输入设备，这里很重要。
@@ -281,18 +284,17 @@ https://raw.githubusercontent.com/hehehai/voxt/refs/heads/main/docs/RemoteModel.
 
 录音时的波形、预览文本和处理中状态会显示在悬浮层里，这里可以控制它出现在屏幕的什么位置，避免挡住当前工作区域。
 
-### 界面语言
+### 语言
 
 - 切换应用界面语言
-- 当前支持英文、中文、日文
-
-如果系统语言不在支持范围内，应用会回退到英文。
-
-### 翻译
-
+- 设置 `用户主语言（User Main Language）`，供提示词变量和 ASR 语言提示使用
 - 设置翻译快捷键的默认目标语言
 
-这个设置主要影响专用翻译动作，例如默认的 `fn+shift`。也就是说，它决定“转录后默认翻译成什么语言”。
+这一组控制的是三层不同能力：
+
+- 界面语言只影响应用 UI，目前支持英文、中文、日文
+- `用户主语言` 会喂给 `{{USER_MAIN_LANGUAGE}}` 变量，也会影响部分 ASR 服务商的语言提示逻辑
+- 翻译目标语言决定默认 `fn+shift` 最终翻译到哪种语言
 
 ### 模型存储
 
@@ -308,14 +310,24 @@ https://raw.githubusercontent.com/hehehai/voxt/refs/heads/main/docs/RemoteModel.
 ### 输出
 
 - `Also copy result to clipboard`
+- `Always show rewrite answer card`
 - `Translate selected text with translation shortcut`
 - `App Enhancement (Beta)`
 
 这里控制的是结果如何输出，以及是否启用上下文增强能力：
 
 - 开启“同时复制到剪贴板”后，Voxt 自动粘贴结果的同时，也会把结果保留在剪贴板里
+- 开启“始终显示转写答案卡片”后，转写结果会固定走答案卡片，不再只在没有可写输入框时才弹出
 - 开启“选中文本翻译”后，按翻译快捷键时如果已有选区，会优先直接翻译并替换选中文本
 - 开启 `App Enhancement` 后，才会显示和启用基于 App / URL 的上下文增强配置
+
+### 语音结束命令
+
+- 可以开启“说出口令后自动结束录音”
+- 内置预设包括 `over`、`end`、`完毕`
+- 切到自定义模式后，也可以填写自己的结束命令
+
+开启后，Voxt 会在转录尾部检测这个命令；如果命令后面大约有 1 秒静音，就会自动结束当前会话。
 
 ### 日志
 
@@ -354,6 +366,20 @@ https://raw.githubusercontent.com/hehehai/voxt/refs/heads/main/docs/RemoteModel.
 
 [![][back-to-top]](#readme-top)
 
+## 词典
+
+Voxt 现在有独立的词典页，用来管理那些你希望它稳定识别、稳定保留、稳定输出的术语。
+
+- 词典词条既可以是全局的，也可以绑定到某个 App Branch 分组
+- 命中的词典词会以 glossary guidance 的方式注入增强、翻译、转写 prompt
+- 对于高置信度的近似命中，可以在写回前自动纠正成词典里的准确词
+- 支持词典导入 / 导出
+- `一键录入` 会用已配置的本地或远程 LLM 扫描历史记录，提取候选词，再由你批量添加或忽略
+
+这套能力尤其适合人名、品牌、产品名、内部项目代号、缩写词和用户自己的特殊拼写习惯。
+
+[![][back-to-top]](#readme-top)
+
 ## 权限
 
 <img width="946" height="701" alt="image" src="https://github.com/user-attachments/assets/c854ceef-8b52-4a72-bc8f-e50d9feba49e" />
@@ -379,6 +405,7 @@ Voxt 的权限是按功能拆分的。你只使用基础语音输入时，只需
 - 语音识别权限只服务于 Apple 系统听写；如果你只用 `MLX 本地转录` 或 `Remote ASR`，可以不开。
 - 辅助功能权限不只是“看界面”，它也负责把结果自动写回别的 App。没开时，Voxt 仍可工作，但结果更可能停留在剪贴板，需要手动粘贴。
 - 输入监控权限主要是为了让 modifier-only 热键更可靠，这也是为什么默认 `fn` 组合建议开启它。
+- 如果你开启了“录音时静音其他应用媒体音频”，Voxt 还需要 macOS 的系统音频录制权限；这个权限只对该功能本身有要求。
 
 [![][back-to-top]](#readme-top)
 

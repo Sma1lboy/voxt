@@ -24,6 +24,7 @@ A macOS menu bar voice input and translation app. Hold to speak, release to past
 - Live transcription while you speak, with real-time text preview.
 - Result enhancement: remove filler words, add punctuation automatically, and customize prompts your own way.
 - App Branch groups let different apps or URLs use different enhancement rules and prompts, for coding, chat, email, and more.
+- Personal dictionary support can inject exact terms into prompts and optionally auto-correct high-confidence near matches before output.
 - Multilingual support with smooth mixed-language input.
 
 **Speak and translate right away** `fn+shift`
@@ -37,6 +38,7 @@ A macOS menu bar voice input and translation app. Hold to speak, release to past
 
 - Example: "Help me write a 200-word self-introduction." Your speech becomes the prompt, and the result is inserted automatically.
 - Rewrite selected text by voice, for example: "Make this shorter and smoother."
+- Optional rewrite answer card keeps generated content visible even when no writable input is focused.
 - More than voice input: it also works like a voice-driven AI assistant.
 
 [![][back-to-top]](#readme-top)
@@ -254,7 +256,7 @@ Current General settings fall into these groups:
 
 ### Configuration
 
-- Export current General, Model, App Branch, and shortcut settings to JSON
+- Export current General, Model, Dictionary, Voice End Command, App Branch, and shortcut settings to JSON
 - Import settings from JSON to quickly move your setup to another Mac
 - Sensitive fields are replaced with placeholders during export and must be filled in again after import
 
@@ -268,6 +270,7 @@ Useful for:
 
 - Choose the microphone input device
 - Turn interaction sounds on or off
+- Optionally mute other apps' media audio while recording
 - Switch interaction sound presets and preview them directly
 
 This section controls where audio comes from and whether Voxt gives you audible start/finish feedback. It matters if you use multiple microphones, external audio devices, or a specific input chain.
@@ -278,18 +281,17 @@ This section controls where audio comes from and whether Voxt gives you audible 
 
 The overlay shows waveform, preview text, and processing state during recording. This setting controls where it appears so it does not block your workspace.
 
-### Interface Language
+### Languages
 
 - Change the app interface language
-- Currently supports English, Chinese, and Japanese
-
-If the system language is not supported, Voxt falls back to English.
-
-### Translation
-
+- Set `User Main Language` for prompt variables and ASR language hints
 - Set the default target language for the translation shortcut
 
-This mainly affects the dedicated translation action, such as the default `fn+shift` flow. In practice, it decides which language transcription should be translated into by default.
+This group controls three different layers:
+
+- Interface language affects only the app UI and currently supports English, Chinese, and Japanese
+- `User Main Language` feeds the `{{USER_MAIN_LANGUAGE}}` template variable and provider-specific ASR hint behavior
+- Translation target language decides which language the default `fn+shift` flow translates into
 
 ### Model Storage
 
@@ -305,14 +307,24 @@ This is especially important for local model users.
 ### Output
 
 - `Also copy result to clipboard`
+- `Always show rewrite answer card`
 - `Translate selected text with translation shortcut`
 - `App Enhancement (Beta)`
 
 This section controls how Voxt returns output and whether context-aware enhancement is enabled:
 
 - When "Also copy result to clipboard" is on, Voxt auto-pastes the result and also keeps it in the clipboard
+- When "Always show rewrite answer card" is on, rewrite results always open in the answer card instead of only appearing when no writable input is focused
 - When "Translate selected text with translation shortcut" is on, the translation shortcut directly translates and replaces the current selection if any text is highlighted
 - When `App Enhancement` is enabled, Voxt shows and activates app- and URL-aware enhancement configuration
+
+### Voice End Command
+
+- Enable a spoken stop command for hands-free recording end
+- Choose from built-in presets such as `over`, `end`, and `完毕`
+- Provide a custom command when preset mode is switched to custom
+
+When enabled, Voxt watches the transcript tail for the configured command and ends the current session automatically after about 1 second of following silence.
 
 ### Logging
 
@@ -351,6 +363,20 @@ Host, port, username, and password can be configured. However, in the current co
 
 [![][back-to-top]](#readme-top)
 
+## Dictionary
+
+Voxt includes a dedicated Dictionary tab for terminology you want the app to recognize, preserve, and reuse consistently.
+
+- Dictionary entries can be global or scoped to an App Branch group
+- Matched terms are injected back into enhancement, translation, and rewrite prompts as runtime glossary guidance
+- High-confidence near matches can be auto-corrected to the exact dictionary term before insertion
+- You can import/export the dictionary directly
+- `One-Click Ingest` scans recent history with the configured local or remote LLM, proposes candidate terms, and lets you add or dismiss them in batches
+
+This is most useful for names, brands, products, internal project names, acronyms, and user-specific spellings that generic ASR or LLM cleanup often gets wrong.
+
+[![][back-to-top]](#readme-top)
+
 ## Permissions
 
 <img width="999" height="712" alt="image" src="https://github.com/user-attachments/assets/47e78969-b51e-4597-8279-37f29b638ce7" />
@@ -377,6 +403,7 @@ Additional notes:
 - Speech Recognition permission is only for Apple system dictation. If you only use `MLX Audio (On-device)` or `Remote ASR`, you can leave it off.
 - Accessibility is not just for "seeing the UI". It is also used to write results back into other apps automatically. Without it, Voxt can still work, but results are more likely to stay in the clipboard for manual paste.
 - Input Monitoring mainly exists to make modifier-only shortcuts more reliable, which is why it is strongly recommended for the default `fn` shortcut set.
+- If you enable "Mute other media audio while recording", Voxt additionally needs macOS system audio recording permission. That permission is only required for that specific feature.
 
 [![][back-to-top]](#readme-top)
 
