@@ -6,6 +6,13 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-03-19
+
+### Fixed
+- Reduced idle and active CPU usage in the status menu and recording overlay by replacing broad menu rebuild triggers with targeted updates and by stopping hidden overlay animations from continuing to drive SwiftUI layout work.
+- Improved recording waveform feedback so the voice bars animate more smoothly and remain visually clearer during transcription while keeping the lower CPU overhead.
+- Removed answer card button tooltips to reduce redundant hover chrome in the rewrite result UI.
+
 ## [1.6.3] - 2026-03-19
 
 ### Fixed
