@@ -21,8 +21,8 @@ key: `$OPENAI_API_KEY`
 
 ### Doubao ASR
 
-- 默认推荐：`volc.bigasr.sauc.duration`
-- 内置模型：`volc.bigasr.sauc.duration`
+- 默认推荐：`volc.seedasr.sauc.duration`
+- 内置模型：`volc.seedasr.sauc.duration`、`volc.bigasr.sauc.duration`
 - 简介：偏实时流式识别，中文场景友好，也适合中英混说。适合想要低延迟语音输入体验的用户。
 
 - [官网](https://www.volcengine.com/)

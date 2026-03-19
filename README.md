@@ -147,7 +147,7 @@ For fuller provider notes, signup links, endpoints, and configuration examples, 
 | Provider | Built-in Model Options | Language Support | Realtime Support | Speed | Recommendation | Current Integration |
 | --- | --- | --- | --- | --- | --- | --- |
 | OpenAI Whisper / Transcribe | `whisper-1`, `gpt-4o-mini-transcribe`, `gpt-4o-transcribe` | Multilingual | Partial. Voxt currently uses file-based transcription, with optional chunked pseudo-realtime preview | Medium | High | `v1/audio/transcriptions` |
-| Doubao ASR | `volc.bigasr.sauc.duration` | Chinese-first, well suited to mixed Chinese/English realtime usage | Yes | Fast | High | Streaming WebSocket ASR |
+| Doubao ASR | `volc.seedasr.sauc.duration`, `volc.bigasr.sauc.duration` | Chinese-first, well suited to mixed Chinese/English realtime usage | Yes | Fast | High | Streaming WebSocket ASR |
 | GLM ASR | `glm-asr-2512`, `glm-asr-1` | Officially positioned for broad scenarios and accents; Voxt currently integrates it as standard upload-based transcription | No (current implementation is upload transcription) | Medium | Medium-high | HTTP transcription endpoint |
 | Aliyun Bailian ASR | `qwen3-asr-flash-realtime`, `fun-asr-realtime`, `paraformer-realtime-*` | Depends on model family: Qwen3 ASR is multilingual, Fun/Paraformer cover Chinese-English or broader multilingual use | Yes | Fast | High | Realtime WebSocket ASR, with separate endpoints for Qwen / Fun / Paraformer families |
 

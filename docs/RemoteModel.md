@@ -21,8 +21,8 @@ Key: `$OPENAI_API_KEY`
 
 ### Doubao ASR
 
-- Suggested default: `volc.bigasr.sauc.duration`
-- Built-in model: `volc.bigasr.sauc.duration`
+- Suggested default: `volc.seedasr.sauc.duration`
+- Built-in models: `volc.seedasr.sauc.duration`, `volc.bigasr.sauc.duration`
 - Overview: Optimized for low-latency streaming recognition, especially in Chinese, and also works well for mixed Chinese-English speech. It is a strong option for users who want a realtime voice input experience.
 
 - [Website](https://www.volcengine.com/)

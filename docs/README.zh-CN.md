@@ -150,7 +150,7 @@ https://raw.githubusercontent.com/hehehai/voxt/refs/heads/main/docs/RemoteModel.
 | 服务商 | 项目内置模型选项 | 支持语言 | 实时支持 | 速度 | 推荐度 | 当前接入方式 |
 | --- | --- | --- | --- | --- | --- | --- |
 | OpenAI Whisper / Transcribe | `whisper-1`、`gpt-4o-mini-transcribe`、`gpt-4o-transcribe` | 多语言 | 部分支持，Voxt 当前是文件转写；可开启分片伪实时预览 | 中 | 高 | `v1/audio/transcriptions` |
-| Doubao ASR | `volc.bigasr.sauc.duration` | 中文优先，适合中英混说 / 实时场景 | 是 | 快 | 高 | WebSocket 流式识别 |
+| Doubao ASR | `volc.seedasr.sauc.duration`、`volc.bigasr.sauc.duration` | 中文优先，适合中英混说 / 实时场景 | 是 | 快 | 高 | WebSocket 流式识别 |
 | GLM ASR | `glm-asr-2512`、`glm-asr-1` | 官方定位覆盖多场景、多口音；Voxt 当前按普通转写接入 | 否（当前实现为上传转写） | 中 | 中高 | HTTP transcription endpoint |
 | Aliyun Bailian ASR | `qwen3-asr-flash-realtime`、`fun-asr-realtime`、`paraformer-realtime-*` | 取决于模型：Qwen3 ASR 为多语言，Fun/Paraformer 覆盖中英或多语 | 是 | 快 | 高 | WebSocket 实时识别，Qwen / Fun / Paraformer 走不同端点 |
 

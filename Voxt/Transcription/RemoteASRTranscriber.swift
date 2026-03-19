@@ -44,7 +44,6 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     private var transcribeTask: Task<Void, Never>?
     private var stopRequested = false
     private var activeProvider: RemoteASRProvider?
-    private let doubaoResourceID = "volc.bigasr.sauc.duration"
     private let streamingFinalWaitTimeout: TimeInterval = 20
 
     func requestPermissions() async -> Bool {
@@ -187,7 +186,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     private func stopDoubaoStreaming(_ context: DoubaoStreamingContext) {
         isRecording = false
         stopDoubaoAudioCapture()
-        VoxtLog.info("Doubao streaming stop requested. sentAudioPackets=\(context.audioPacketCount)")
+        VoxtLog.info("Doubao streaming stop requested. sentAudioPackets=\(context.audioPacketCount)", verbose: true)
 
         let finalSequence = context.audioPacketCount == 0 ? Int32(-1) : -context.nextAudioSequence
         VoxtLog.info(
@@ -464,6 +463,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         let accessToken = configuration.accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let appID = configuration.appID.trimmingCharacters(in: .whitespacesAndNewlines)
         let resourceID = resolvedDoubaoResourceID(from: configuration)
+        let endpoint = resolvedDoubaoEndpoint(from: configuration)
 
         guard !accessToken.isEmpty else {
             throw NSError(domain: "Voxt.RemoteASR", code: -3, userInfo: [NSLocalizedDescriptionKey: "Doubao Access Token is empty."])
@@ -476,7 +476,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             appID: appID,
             accessToken: accessToken,
             resourceID: resourceID,
-            endpoint: normalizedEndpoint(configuration.endpoint, defaultValue: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel"),
+            endpoint: endpoint,
             hintPayload: hintPayload
         )
     }
@@ -983,7 +983,9 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         let requestID = UUID().uuidString.lowercased()
         request.setValue(requestID, forHTTPHeaderField: "X-Api-Request-Id")
         request.setValue(requestID, forHTTPHeaderField: "X-Api-Connect-Id")
-        VoxtLog.info("Doubao websocket connect. endpoint=\(endpoint), resource=\(resourceID), requestID=\(requestID), appID=\(appID)")
+        VoxtLog.info(
+            "Doubao websocket connect. endpoint=\(endpoint), resource=\(resourceID)"
+        )
 
         let ws = VoxtNetworkSession.active.webSocketTask(with: request)
         ws.resume()
@@ -996,7 +998,8 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 ws: ws,
                 reqID: reqID,
                 sequence: 1,
-                hintPayload: hintPayload
+                hintPayload: hintPayload,
+                audioFormat: DoubaoASRConfiguration.requestAudioFormat
             )
 
         let responseState = DoubaoResponseState()
@@ -1075,7 +1078,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             throw NSError(domain: "Voxt.RemoteASR", code: -4, userInfo: [NSLocalizedDescriptionKey: "Doubao App ID is empty."])
         }
 
-        let endpoint = normalizedEndpoint(configuration.endpoint, defaultValue: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel")
+        let endpoint = resolvedDoubaoStreamingEndpoint(from: configuration)
         guard let wsURL = URL(string: endpoint) else {
             throw NSError(domain: "Voxt.RemoteASR", code: -5, userInfo: [NSLocalizedDescriptionKey: "Invalid Doubao endpoint URL."])
         }
@@ -1088,7 +1091,9 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         let requestID = UUID().uuidString.lowercased()
         request.setValue(requestID, forHTTPHeaderField: "X-Api-Request-Id")
         request.setValue(requestID, forHTTPHeaderField: "X-Api-Connect-Id")
-        VoxtLog.info("Doubao stream connect. endpoint=\(endpoint), resource=\(resourceID), requestID=\(requestID), appID=\(appID)")
+        VoxtLog.info(
+            "Doubao stream connect. endpoint=\(endpoint), resource=\(resourceID)"
+        )
 
         let ws = VoxtNetworkSession.active.webSocketTask(with: request)
         ws.resume()
@@ -1097,49 +1102,19 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         receiveDoubaoMessages(context, endpoint: endpoint, resourceID: resourceID, appID: appID, accessToken: accessToken)
 
         let reqID = UUID().uuidString.lowercased()
-        var requestObject: [String: Any] = [
-            "reqid": reqID,
-            "model_name": "bigmodel",
-            "enable_itn": true,
-            "enable_punc": true,
-            "enable_ddc": true,
-            "show_utterances": true,
-            "enable_nonstream": false
-        ]
-        if let chineseOutputVariant = hintPayload.chineseOutputVariant {
-            requestObject["output_zh_variant"] = chineseOutputVariant
-        }
-
-        var audioObject: [String: Any] = [
-            "format": "pcm",
-            "codec": "raw",
-            "rate": 16000,
-            "bits": 16,
-            "channel": 1
-        ]
-        if let language = hintPayload.language {
-            audioObject["language"] = language
-        }
-
-        let payloadObject: [String: Any] = [
-            "user": [
-                "uid": "voxt"
-            ],
-            "audio": audioObject,
-            "request": requestObject
-        ]
-        let rawPayload = try JSONSerialization.data(withJSONObject: payloadObject)
-        let (initializationCompression, payload) = encodeDoubaoPacketPayload(rawPayload, preferGzip: true)
-
-        let initPacket = buildDoubaoPacket(
-            messageType: DoubaoProtocol.messageTypeFullClientRequest,
-            messageFlags: DoubaoProtocol.flagPositiveSequence,
-            serialization: DoubaoProtocol.serializationJSON,
-            compression: initializationCompression,
-            sequence: 1,
-            payload: payload
+        let streamingHintPayload = ResolvedASRHintPayload(
+            language: nil,
+            languageHints: hintPayload.languageHints,
+            chineseOutputVariant: hintPayload.chineseOutputVariant,
+            prompt: hintPayload.prompt
         )
-        sendDoubaoPacket(initPacket, through: ws) { error, isBenign in
+        sendDoubaoFullRequest(
+            ws: ws,
+            reqID: reqID,
+            sequence: 1,
+            hintPayload: streamingHintPayload,
+            audioFormat: DoubaoASRConfiguration.streamingAudioFormat
+        ) { error, isBenign in
             Task { [responseState = context.responseState] in
                 if isBenign {
                     context.isClosed = true
@@ -1183,9 +1158,6 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 let sequence = context.nextAudioSequence
                 context.nextAudioSequence += 1
                 context.lastAudioSequence = sequence
-                if context.audioPacketCount == 1 {
-                    VoxtLog.info("Doubao streaming audio started. inputRate=\(Int(inputFormat.sampleRate))Hz, packetBytes=\(pcmData.count)")
-                }
                 self.audioLevel = self.audioLevelFromPCM16(pcmData)
                 let (audioCompression, audioPayload) = self.encodeDoubaoPacketPayload(pcmData, preferGzip: true)
                 let packet = self.buildDoubaoPacket(
@@ -1236,10 +1208,6 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                     do {
                         if case .data(let payloadData) = message,
                            let parsed = try self.parseDoubaoServerPacket(payloadData) {
-                            context.serverPacketCount += 1
-                            if context.serverPacketCount <= 4 {
-                                VoxtLog.info("Doubao streaming server packet received. index=\(context.serverPacketCount), bytes=\(payloadData.count), hasText=\(!(parsed.text ?? "").isEmpty), isFinal=\(parsed.isFinal)")
-                            }
                             if !context.didStartAudioStream {
                                 guard !self.stopRequested else {
                                     VoxtLog.info("Doubao handshake completion ignored because stop was already requested.", verbose: true)
@@ -1248,7 +1216,6 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                                 do {
                                     try self.startDoubaoAudioCapture()
                                     context.didStartAudioStream = true
-                                    VoxtLog.info("Doubao streaming handshake confirmed, audio capture started.")
                                 } catch {
                                     await context.responseState.markCompletedWithError(error)
                                     self.cleanupDoubaoStreamingState()
@@ -1271,6 +1238,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                             context.isClosed = true
                             await context.responseState.markSocketClosed()
                         } else {
+                            context.isClosed = true
                             VoxtLog.warning("Doubao stream receive parse failed. detail=\(error.localizedDescription)")
                             await context.responseState.markCompletedWithError(error)
                         }
@@ -1301,6 +1269,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                         appID: appID,
                         accessToken: accessToken
                     ) {
+                        context.isClosed = true
                         await MainActor.run {
                             VoxtLog.warning("Doubao stream receive failed. detail=\(detail)")
                         }
@@ -1311,6 +1280,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                         )
                         await context.responseState.markCompletedWithError(detailedError)
                     } else {
+                        context.isClosed = true
                         await context.responseState.markCompletedWithError(error)
                     }
                 }
@@ -1375,7 +1345,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             .joined(separator: ", ")
         let preview = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        VoxtLog.info("[\(context)] status=\(response.statusCode), headers={\(headers)}, body=\(preview)")
+        VoxtLog.info("[\(context)] status=\(response.statusCode), headers={\(headers)}, body=\(preview)", verbose: true)
     }
 
     private func isBenignDoubaoSocketError(_ error: NSError) -> Bool {
@@ -1399,42 +1369,55 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         ws: URLSessionWebSocketTask,
         reqID: String,
         sequence: Int32,
-        hintPayload: ResolvedASRHintPayload
+        hintPayload: ResolvedASRHintPayload,
+        audioFormat: String
     ) async throws {
-        var requestObject: [String: Any] = [
-            "reqid": reqID,
-            "model_name": "bigmodel",
-            "enable_itn": true,
-            "enable_punc": true,
-            "enable_ddc": true,
-            "show_utterances": true,
-            "enable_nonstream": false
-        ]
-        if let chineseOutputVariant = hintPayload.chineseOutputVariant {
-            requestObject["output_zh_variant"] = chineseOutputVariant
-        }
+        let packet = try buildDoubaoFullRequestPacket(
+            reqID: reqID,
+            sequence: sequence,
+            hintPayload: hintPayload,
+            audioFormat: audioFormat
+        )
+        try await ws.send(.data(packet))
+    }
 
-        var audioObject: [String: Any] = [
-            "format": "wav",
-            "codec": "raw",
-            "rate": 16000,
-            "bits": 16,
-            "channel": 1
-        ]
-        if let language = hintPayload.language {
-            audioObject["language"] = language
+    private func sendDoubaoFullRequest(
+        ws: URLSessionWebSocketTask,
+        reqID: String,
+        sequence: Int32,
+        hintPayload: ResolvedASRHintPayload,
+        audioFormat: String,
+        onError: @escaping (Error, Bool) -> Void
+    ) {
+        do {
+            let packet = try buildDoubaoFullRequestPacket(
+                reqID: reqID,
+                sequence: sequence,
+                hintPayload: hintPayload,
+                audioFormat: audioFormat
+            )
+            sendDoubaoPacket(packet, through: ws, onError: onError)
+        } catch {
+            onError(error, false)
         }
+    }
 
-        let payloadObject: [String: Any] = [
-            "user": [
-                "uid": "voxt"
-            ],
-            "audio": audioObject,
-            "request": requestObject
-        ]
+    private func buildDoubaoFullRequestPacket(
+        reqID: String,
+        sequence: Int32,
+        hintPayload: ResolvedASRHintPayload,
+        audioFormat: String
+    ) throws -> Data {
+        let payloadObject = DoubaoASRConfiguration.fullRequestPayload(
+            requestID: reqID,
+            userID: "voxt",
+            language: hintPayload.language,
+            chineseOutputVariant: hintPayload.chineseOutputVariant,
+            audioFormat: audioFormat
+        )
         let rawPayload = try JSONSerialization.data(withJSONObject: payloadObject)
         let (payloadCompression, payload) = encodeDoubaoPacketPayload(rawPayload, preferGzip: true)
-        let packet = buildDoubaoPacket(
+        return buildDoubaoPacket(
             messageType: DoubaoProtocol.messageTypeFullClientRequest,
             messageFlags: DoubaoProtocol.flagPositiveSequence,
             serialization: DoubaoProtocol.serializationJSON,
@@ -1442,7 +1425,6 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             sequence: sequence,
             payload: payload
         )
-        try await ws.send(.data(packet))
     }
 
     private func sendDoubaoAudioPacket(
@@ -2280,11 +2262,15 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     }
 
     private func resolvedDoubaoResourceID(from configuration: RemoteProviderConfiguration) -> String {
-        let model = configuration.model.trimmingCharacters(in: .whitespacesAndNewlines)
-        if model.isEmpty || model == "volc.seedasr.sauc.duration" {
-            return doubaoResourceID
-        }
-        return model
+        DoubaoASRConfiguration.resolvedResourceID(configuration.model)
+    }
+
+    private func resolvedDoubaoEndpoint(from configuration: RemoteProviderConfiguration) -> String {
+        DoubaoASRConfiguration.resolvedEndpoint(configuration.endpoint, model: configuration.model)
+    }
+
+    private func resolvedDoubaoStreamingEndpoint(from configuration: RemoteProviderConfiguration) -> String {
+        DoubaoASRConfiguration.resolvedStreamingEndpoint(configuration.endpoint, model: configuration.model)
     }
 
     private func startMeteringTimer() {

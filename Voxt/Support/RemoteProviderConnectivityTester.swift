@@ -1,4 +1,5 @@
 import Foundation
+import zlib
 
 enum RemoteProviderTestTarget {
     case asr(RemoteASRProvider)
@@ -30,7 +31,7 @@ struct RemoteProviderConnectivityTester {
             guard !configuration.appID.isEmpty else {
                 throw NSError(domain: "Voxt.Settings", code: -2, userInfo: [NSLocalizedDescriptionKey: AppLocalization.localizedString("Doubao App ID is required for testing.")])
             }
-            let endpoint = resolvedDoubaoASREndpoint(configuration.endpoint)
+            let endpoint = resolvedDoubaoASREndpoint(configuration.endpoint, model: configuration.model)
             return try await testDoubaoStreamingReachability(
                 endpoint: endpoint,
                 appID: configuration.appID,
@@ -755,9 +756,8 @@ struct RemoteProviderConnectivityTester {
         }
     }
 
-    private func resolvedDoubaoASREndpoint(_ endpoint: String) -> String {
-        let trimmed = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel" : trimmed
+    private func resolvedDoubaoASREndpoint(_ endpoint: String, model: String) -> String {
+        DoubaoASRConfiguration.resolvedStreamingEndpoint(endpoint, model: model)
     }
 
     private func testDoubaoStreamingReachability(
@@ -779,7 +779,11 @@ struct RemoteProviderConnectivityTester {
         let requestID = UUID().uuidString.lowercased()
         request.setValue(requestID, forHTTPHeaderField: "X-Api-Request-Id")
         request.setValue(requestID, forHTTPHeaderField: "X-Api-Connect-Id")
-        logHTTPRequest(context: "Doubao streaming test", request: request, bodyPreview: "full-request + 0.1s pcm + final packet")
+        logHTTPRequest(
+            context: "Doubao streaming test",
+            request: request,
+            bodyPreview: "full-request(audio=\(DoubaoASRConfiguration.requestAudioFormat),gzip) + silent wav bytes(gzip)"
+        )
 
         do {
             let ws = VoxtNetworkSession.active.webSocketTask(with: request)
@@ -789,52 +793,31 @@ struct RemoteProviderConnectivityTester {
             }
 
             let reqID = UUID().uuidString.lowercased()
-            let payloadObject: [String: Any] = [
-                "user": [
-                    "uid": "voxt-test"
-                ],
-                "audio": [
-                    "format": "pcm",
-                    "rate": 16000,
-                    "bits": 16,
-                    "channel": 1,
-                    "language": "zh-CN"
-                ],
-                "request": [
-                    "reqid": reqID,
-                    "model_name": "bigmodel",
-                    "sequence": 1,
-                    "show_utterances": true,
-                    "result_type": "single"
-                ]
-            ]
+            let payloadObject = DoubaoASRConfiguration.fullRequestPayload(
+                requestID: reqID,
+                userID: "voxt-test",
+                language: "zh-CN",
+                chineseOutputVariant: nil
+            )
             let initPayload = try JSONSerialization.data(withJSONObject: payloadObject)
+            let (initCompression, initPacketPayload) = encodeDoubaoTestPacketPayload(initPayload, preferGzip: true)
             try await ws.send(.data(buildDoubaoTestPacket(
                 messageType: 0x1,
                 messageFlags: 0x1,
                 serialization: 0x1,
-                compression: 0x0,
+                compression: initCompression,
                 sequence: 1,
-                payload: initPayload
+                payload: initPacketPayload
             )))
 
-            // 0.1s 16k/16bit mono silent PCM for realistic stream validation.
+            let (audioCompression, audioPayload) = encodeDoubaoTestPacketPayload(silentTestWavData(), preferGzip: true)
             try await ws.send(.data(buildDoubaoTestPacket(
                 messageType: 0x2,
-                messageFlags: 0x1,
+                messageFlags: 0x3,
                 serialization: 0x0,
-                compression: 0x0,
-                sequence: 2,
-                payload: Data(count: 3200)
-            )))
-
-            try await ws.send(.data(buildDoubaoTestPacket(
-                messageType: 0x2,
-                messageFlags: 0x2,
-                serialization: 0x0,
-                compression: 0x0,
+                compression: audioCompression,
                 sequence: -2,
-                payload: Data()
+                payload: audioPayload
             )))
 
             for index in 1...4 {
@@ -842,7 +825,8 @@ struct RemoteProviderConnectivityTester {
                 guard case .data(let packetData) = message else { continue }
                 let parsed = try parseDoubaoTestServerPacket(packetData)
                 VoxtLog.info(
-                    "Doubao test server packet. index=\(index), type=\(parsed.messageType), bytes=\(packetData.count), hasText=\(parsed.hasText), isFinal=\(parsed.isFinal)"
+                    "Doubao test server packet. index=\(index), type=\(parsed.messageType), bytes=\(packetData.count), hasText=\(parsed.hasText), isFinal=\(parsed.isFinal)",
+                    verbose: true
                 )
 
                 if let errorText = parsed.errorText, !errorText.isEmpty {
@@ -1029,10 +1013,12 @@ struct RemoteProviderConnectivityTester {
 
         let byte0 = data[0]
         let byte1 = data[1]
+        let byte2 = data[2]
         let headerSizeWords = Int(byte0 & 0x0F)
         let headerSizeBytes = max(4, headerSizeWords * 4)
         let messageType = (byte1 >> 4) & 0x0F
         let messageFlags = byte1 & 0x0F
+        let compression = byte2 & 0x0F
 
         var cursor = headerSizeBytes
 
@@ -1062,12 +1048,18 @@ struct RemoteProviderConnectivityTester {
             return (messageType, false, false, "Invalid Doubao payload size.")
         }
         let payload = data.subdata(in: cursor..<(cursor + Int(payloadSize)))
+        let decodedPayload: Data
+        if compression == 0x1 {
+            decodedPayload = try decodeDoubaoTestGzipPayload(payload)
+        } else {
+            decodedPayload = payload
+        }
         if messageType == 0xF {
-            let errorText = String(data: payload, encoding: .utf8) ?? "Doubao server returned an error packet."
+            let errorText = String(data: decodedPayload, encoding: .utf8) ?? "Doubao server returned an error packet."
             return (messageType, false, false, errorText)
         }
 
-        guard let object = try? JSONSerialization.jsonObject(with: payload) else {
+        guard let object = try? JSONSerialization.jsonObject(with: decodedPayload) else {
             return (messageType, false, (sequence ?? 1) < 0, nil)
         }
 
@@ -1078,8 +1070,7 @@ struct RemoteProviderConnectivityTester {
     }
 
     private func normalizedDoubaoResourceID(_ model: String) -> String {
-        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "volc.bigasr.sauc.duration" : trimmed
+        DoubaoASRConfiguration.resolvedResourceID(model)
     }
 
     private func extractTextFromJSONObject(_ object: Any) -> String? {
@@ -1131,6 +1122,130 @@ struct RemoteProviderConnectivityTester {
             }
         }
         return nil
+    }
+
+    private func encodeDoubaoTestPacketPayload(
+        _ payload: Data,
+        preferGzip: Bool
+    ) -> (compression: UInt8, payload: Data) {
+        guard preferGzip, !payload.isEmpty else {
+            return (0x0, payload)
+        }
+
+        do {
+            return (0x1, try gzipCompressDoubaoTestPayload(payload))
+        } catch {
+            VoxtLog.warning("Doubao test gzip compression failed. fallback to plain payload. error=\(error.localizedDescription)")
+            return (0x0, payload)
+        }
+    }
+
+    private func gzipCompressDoubaoTestPayload(_ data: Data) throws -> Data {
+        if data.isEmpty {
+            return Data()
+        }
+
+        return try data.withUnsafeBytes { rawBuffer in
+            guard let input = rawBuffer.bindMemory(to: UInt8.self).baseAddress else {
+                return data
+            }
+
+            var stream = z_stream()
+            stream.zalloc = nil
+            stream.zfree = nil
+            stream.opaque = nil
+            stream.next_in = UnsafeMutablePointer<Bytef>(mutating: input)
+            stream.avail_in = uInt(data.count)
+
+            let initStatus = deflateInit2_(
+                &stream,
+                Z_DEFAULT_COMPRESSION,
+                Z_DEFLATED,
+                MAX_WBITS + 16,
+                MAX_MEM_LEVEL,
+                Z_DEFAULT_STRATEGY,
+                ZLIB_VERSION,
+                Int32(MemoryLayout<z_stream>.size)
+            )
+            guard initStatus == Z_OK else {
+                throw NSError(domain: "Voxt.Settings", code: -122, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize Doubao test GZIP compression."])
+            }
+            defer { deflateEnd(&stream) }
+
+            var output = Data()
+            var status: Int32 = Z_OK
+            repeat {
+                var chunk = [UInt8](repeating: 0, count: 4096)
+                let statusCode = chunk.withUnsafeMutableBufferPointer { buffer -> Int32 in
+                    stream.next_out = buffer.baseAddress
+                    stream.avail_out = uInt(buffer.count)
+                    return deflate(&stream, Z_FINISH)
+                }
+                status = statusCode
+                let produced = chunk.count - Int(stream.avail_out)
+                if produced > 0 {
+                    output.append(chunk, count: produced)
+                }
+            } while status == Z_OK
+
+            guard status == Z_STREAM_END else {
+                throw NSError(domain: "Voxt.Settings", code: -123, userInfo: [NSLocalizedDescriptionKey: "Failed to compress Doubao test payload with GZIP."])
+            }
+
+            return output
+        }
+    }
+
+    private func decodeDoubaoTestGzipPayload(_ data: Data) throws -> Data {
+        if data.isEmpty {
+            return Data()
+        }
+
+        return try data.withUnsafeBytes { rawBuffer in
+            guard let input = rawBuffer.bindMemory(to: UInt8.self).baseAddress else {
+                return data
+            }
+
+            var stream = z_stream()
+            stream.zalloc = nil
+            stream.zfree = nil
+            stream.opaque = nil
+            stream.next_in = UnsafeMutablePointer<Bytef>(mutating: input)
+            stream.avail_in = uInt(data.count)
+
+            let initStatus = inflateInit2_(
+                &stream,
+                MAX_WBITS + 16,
+                ZLIB_VERSION,
+                Int32(MemoryLayout<z_stream>.size)
+            )
+            guard initStatus == Z_OK else {
+                throw NSError(domain: "Voxt.Settings", code: -124, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize Doubao test GZIP decompression."])
+            }
+            defer { inflateEnd(&stream) }
+
+            var output = Data()
+            var status: Int32 = Z_OK
+            repeat {
+                var chunk = [UInt8](repeating: 0, count: 4096)
+                let statusCode = chunk.withUnsafeMutableBufferPointer { buffer -> Int32 in
+                    stream.next_out = buffer.baseAddress
+                    stream.avail_out = uInt(buffer.count)
+                    return inflate(&stream, Z_NO_FLUSH)
+                }
+                status = statusCode
+                let produced = chunk.count - Int(stream.avail_out)
+                if produced > 0 {
+                    output.append(chunk, count: produced)
+                }
+            } while status == Z_OK
+
+            guard status == Z_STREAM_END else {
+                throw NSError(domain: "Voxt.Settings", code: -125, userInfo: [NSLocalizedDescriptionKey: "Failed to decompress Doubao test GZIP payload."])
+            }
+
+            return output
+        }
     }
 
     private func providerDefaultTestEndpoint(_ provider: RemoteLLMProvider) -> String {
@@ -1267,7 +1382,8 @@ struct RemoteProviderConnectivityTester {
         let url = redactedURLString(request.url)
         let headers = redactedHeaders(request.allHTTPHeaderFields ?? [:])
         VoxtLog.info(
-            "Network test request. context=\(context), method=\(method), url=\(url), headers=\(headers), body=\(truncateLogText(bodyPreview, limit: 700))"
+            "Network test request. context=\(context), method=\(method), url=\(url), headers=\(headers), body=\(truncateLogText(bodyPreview, limit: 700))",
+            verbose: true
         )
     }
 
@@ -1278,7 +1394,8 @@ struct RemoteProviderConnectivityTester {
         })
         let payload = String(data: data, encoding: .utf8) ?? "<non-utf8 \(data.count) bytes>"
         VoxtLog.info(
-            "Network test response. context=\(context), status=\(response.statusCode), url=\(url), headers=\(headers), body=\(truncateLogText(payload, limit: 700))"
+            "Network test response. context=\(context), status=\(response.statusCode), url=\(url), headers=\(headers), body=\(truncateLogText(payload, limit: 700))",
+            verbose: true
         )
     }
 

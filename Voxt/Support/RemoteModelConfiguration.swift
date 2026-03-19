@@ -5,6 +5,88 @@ struct RemoteModelOption: Hashable, Identifiable {
     let title: String
 }
 
+enum DoubaoASRConfiguration {
+    static let modelV2 = "volc.seedasr.sauc.duration"
+    static let modelV1 = "volc.bigasr.sauc.duration"
+    static let defaultNostreamEndpoint = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream"
+    static let defaultStreamingEndpointV1 = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel"
+    static let defaultStreamingEndpointV2 = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
+    static let requestAudioFormat = "wav"
+    static let streamingAudioFormat = "pcm"
+    static let requestAudioCodec = "raw"
+
+    static func resolvedEndpoint(_ endpoint: String, model: String) -> String {
+        let trimmed = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+
+        return defaultNostreamEndpoint
+    }
+
+    static func resolvedStreamingEndpoint(_ endpoint: String, model: String) -> String {
+        let trimmed = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+
+        switch resolvedResourceID(model) {
+        case modelV2:
+            return defaultStreamingEndpointV2
+        case modelV1:
+            return defaultStreamingEndpointV1
+        default:
+            return defaultStreamingEndpointV2
+        }
+    }
+
+    static func resolvedResourceID(_ model: String) -> String {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? modelV2 : trimmed
+    }
+
+    static func fullRequestPayload(
+        requestID: String,
+        userID: String,
+        language: String?,
+        chineseOutputVariant: String?,
+        audioFormat: String = requestAudioFormat
+    ) -> [String: Any] {
+        var requestObject: [String: Any] = [
+            "reqid": requestID,
+            "model_name": "bigmodel",
+            "enable_itn": true,
+            "enable_punc": true,
+            "enable_ddc": true,
+            "show_utterances": true,
+            "enable_nonstream": false
+        ]
+        if let chineseOutputVariant {
+            requestObject["output_zh_variant"] = chineseOutputVariant
+        }
+
+        var audioObject: [String: Any] = [
+            "format": audioFormat,
+            "codec": requestAudioCodec,
+            "rate": 16000,
+            "bits": 16,
+            "channel": 1
+        ]
+        if let language,
+           !language.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            audioObject["language"] = language
+        }
+
+        return [
+            "user": [
+                "uid": userID
+            ],
+            "audio": audioObject,
+            "request": requestObject
+        ]
+    }
+}
+
 enum RemoteASRProvider: String, CaseIterable, Identifiable {
     case openAIWhisper
     case doubaoASR
@@ -31,7 +113,7 @@ enum RemoteASRProvider: String, CaseIterable, Identifiable {
         case .openAIWhisper:
             return "whisper-1"
         case .doubaoASR:
-            return "volc.bigasr.sauc.duration"
+            return DoubaoASRConfiguration.modelV2
         case .glmASR:
             return "glm-asr-1"
         case .aliyunBailianASR:
@@ -49,7 +131,8 @@ enum RemoteASRProvider: String, CaseIterable, Identifiable {
             ]
         case .doubaoASR:
             return [
-                RemoteModelOption(id: "volc.bigasr.sauc.duration", title: "Doubao ASR 2.0 (Hourly)")
+                RemoteModelOption(id: DoubaoASRConfiguration.modelV2, title: "Doubao ASR 2.0 (Hourly)"),
+                RemoteModelOption(id: DoubaoASRConfiguration.modelV1, title: "Doubao ASR 1.0 (Hourly)")
             ]
         case .glmASR:
             return [
@@ -509,12 +592,8 @@ enum RemoteModelConfigurationStore {
         stored: [String: RemoteProviderConfiguration]
     ) -> RemoteProviderConfiguration {
         let allowedModelIDs = Set(provider.modelOptions.map(\.id))
-        let legacyDoubaoModelIDs: Set<String> = ["volc.seedasr.sauc.duration"]
         if let existing = stored[provider.rawValue] {
             var normalized = existing
-            if provider == .doubaoASR && legacyDoubaoModelIDs.contains(normalized.model.trimmingCharacters(in: .whitespacesAndNewlines)) {
-                normalized.model = provider.suggestedModel
-            }
             if !allowedModelIDs.contains(normalized.model) {
                 normalized.model = provider.suggestedModel
             }
