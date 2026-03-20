@@ -7,7 +7,18 @@ import Speech
 extension AppDelegate {
     func beginRecording(outputMode: SessionOutputMode) {
         guard !isSessionActive else { return }
-        guard preflightPermissionsForRecording() else { return }
+        let startDecision = RecordingStartPlanner.resolve(
+            selectedEngine: transcriptionEngine,
+            mlxModelState: mlxModelManager.state
+        )
+        guard case .start(let recordingEngine) = startDecision else {
+            if case .blocked(let reason) = startDecision {
+                VoxtLog.warning("Recording start blocked: \(reason.logDescription)")
+                showOverlayReminder(reason.userMessage)
+            }
+            return
+        }
+        guard preflightPermissionsForRecording(engine: recordingEngine) else { return }
 
         cancelPendingFinishTasks()
         overlayState.isCompleting = false
@@ -22,14 +33,17 @@ extension AppDelegate {
         sessionOutputMode = outputMode
         enhancementContextSnapshot = nil
         rewriteSessionHasSelectedSourceText = false
-        let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let frontmostApplication = NSWorkspace.shared.frontmostApplication
+        let frontmostBundleID = frontmostApplication?.bundleIdentifier
+        let sessionTargetBundleID = fallbackInjectBundleID(from: frontmostBundleID)
+        sessionTargetApplicationBundleID = sessionTargetBundleID
+        sessionTargetApplicationPID = sessionTargetBundleID == nil ? nil : frontmostApplication?.processIdentifier
         rewriteSessionHadWritableFocusedInput = outputMode == .rewrite ? hasWritableFocusedTextInput() : false
-        rewriteSessionFallbackInjectBundleID =
-            outputMode == .rewrite ? fallbackInjectBundleID(from: frontmostBundleID) : nil
+        rewriteSessionFallbackInjectBundleID = outputMode == .rewrite ? sessionTargetBundleID : nil
         resetVoiceEndCommandState()
 
         VoxtLog.info(
-            "Recording started. output=\(sessionOutputLabel(for: outputMode)), engine=\(transcriptionEngine.rawValue)"
+            "Recording started. output=\(sessionOutputLabel(for: outputMode)), engine=\(recordingEngine.rawValue)"
         )
         if outputMode == .rewrite {
             VoxtLog.info(
@@ -45,38 +59,15 @@ extension AppDelegate {
         overlayState.statusMessage = ""
         overlayState.presentRecording(iconMode: overlayIconMode(for: outputMode))
 
-        if transcriptionEngine == .mlxAudio {
-            switch mlxModelManager.state {
-            case .notDownloaded:
-                VoxtLog.warning("MLX Audio model not downloaded, falling back to Direct Dictation")
-                showOverlayStatus(
-                    String(localized: "MLX model is not downloaded. Open Settings > Model to install it."),
-                    clearAfter: 2.5
-                )
-            case .error:
-                VoxtLog.warning("MLX Audio model error, falling back to Direct Dictation")
-                showOverlayStatus(
-                    String(localized: "MLX model is unavailable. Open Settings > Model to fix it."),
-                    clearAfter: 2.5
-                )
-            default:
-                break
-            }
-        }
-
         isSessionActive = true
         pendingSystemAudioMuteTask?.cancel()
         pendingSystemAudioMuteTask = nil
-        overlayWindow.show(
-            state: overlayState,
-            position: overlayPosition
-        )
 
         let startCapture = { [weak self] in
             guard let self else { return }
-            if self.transcriptionEngine == .mlxAudio, self.isMLXReady {
+            if recordingEngine == .mlxAudio {
                 self.startMLXRecordingSession()
-            } else if self.transcriptionEngine == .remote {
+            } else if recordingEngine == .remote {
                 self.startRemoteRecordingSession()
             } else {
                 self.startSpeechRecordingSession()
@@ -142,6 +133,8 @@ extension AppDelegate {
         activeRecordingSessionID = UUID()
         isSessionCancellationRequested = true
         didCommitSessionOutput = true
+        sessionTargetApplicationPID = nil
+        sessionTargetApplicationBundleID = nil
 
         cancelSessionControlTasks()
         pendingSystemAudioMuteTask?.cancel()
@@ -361,17 +354,21 @@ extension AppDelegate {
             self.speechTranscriber.onTranscriptionFinished = { [weak self] text in
                 self?.processTranscription(text, sessionID: sessionID)
             }
+            self.speechTranscriber.startRecording()
+            guard self.speechTranscriber.isRecording else {
+                let failureMessage = self.speechTranscriber.lastStartFailureMessage
+                    ?? String(localized: "Direct Dictation failed to start recording.")
+                VoxtLog.warning("Speech recording session did not enter recording state. reason=\(failureMessage)")
+                self.showOverlayReminder(failureMessage)
+                self.resetSessionAfterFailedStart()
+                return
+            }
+
             self.overlayState.bind(to: self.speechTranscriber)
             self.overlayWindow.show(
                 state: self.overlayState,
                 position: self.overlayPosition
             )
-            self.speechTranscriber.startRecording()
-            guard self.speechTranscriber.isRecording else {
-                VoxtLog.warning("Speech recording session did not enter recording state.")
-                self.resetSessionAfterFailedStart()
-                return
-            }
         }
     }
 
@@ -415,6 +412,8 @@ extension AppDelegate {
         transcriptionProcessingStartedAt = nil
         transcriptionResultReceivedAt = nil
         isSelectedTextTranslationFlow = false
+        sessionTargetApplicationPID = nil
+        sessionTargetApplicationBundleID = nil
         enhancementContextSnapshot = nil
         lastEnhancementPromptContext = nil
         rewriteSessionHasSelectedSourceText = false
@@ -428,7 +427,7 @@ extension AppDelegate {
         await AVCaptureDevice.requestAccess(for: .audio)
     }
 
-    private func preflightPermissionsForRecording() -> Bool {
+    private func preflightPermissionsForRecording(engine: TranscriptionEngine) -> Bool {
         if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
             VoxtLog.warning("Recording blocked: microphone permission not granted.")
             showOverlayReminder(
@@ -437,7 +436,7 @@ extension AppDelegate {
             return false
         }
 
-        if transcriptionEngine == .dictation && SFSpeechRecognizer.authorizationStatus() != .authorized {
+        if engine == .dictation && SFSpeechRecognizer.authorizationStatus() != .authorized {
             VoxtLog.warning("Recording blocked: speech recognition permission not granted for Direct Dictation.")
             showOverlayReminder(
                 String(localized: "Speech Recognition permission is required for Direct Dictation. Enable it in Settings > Permissions.")

@@ -64,6 +64,8 @@ struct WaveformView: View {
         .padding(.horizontal, isAnswerMode ? 18 : (isCompact ? 14 : 20))
         .padding(.vertical, isAnswerMode ? 16 : (isCompact ? 10 : 12))
         .background(cardBackground)
+        .compositingGroup()
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .animation(.spring(response: 0.38, dampingFraction: 0.78), value: displayMode)
         .animation(.spring(response: 0.4, dampingFraction: 0.55, blendDuration: 0.1), value: isCompact)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -318,7 +320,7 @@ struct WaveformView: View {
 
     private func barHeight(for index: Int) -> CGFloat {
         let minH: CGFloat = 4
-        let maxH: CGFloat = 26
+        let maxH: CGFloat = 23
         let phase = phases[index]
         let sine = (sin(phase) + 1) / 2
 
@@ -353,7 +355,7 @@ struct WaveformView: View {
 
     private func normalizedAudioLevel(_ raw: Float) -> CGFloat {
         let clamped = max(0, min(raw, 1))
-        let gained = min(1.0, pow(Double(clamped), 0.62) * 1.55)
+        let gained = min(1.0, pow(Double(clamped), 0.82) * 1.05)
         return CGFloat(gained)
     }
 

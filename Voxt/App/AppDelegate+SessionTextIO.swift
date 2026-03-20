@@ -726,6 +726,42 @@ extension AppDelegate {
         return writableRoles.contains(role)
     }
 
+    @discardableResult
+    private func restoreSessionTargetApplicationIfNeeded() -> Bool {
+        guard let ownBundleID = Bundle.main.bundleIdentifier else { return false }
+        let frontmostApplication = NSWorkspace.shared.frontmostApplication
+        let frontmostBundleID = frontmostApplication?.bundleIdentifier
+        let frontmostPID = frontmostApplication?.processIdentifier
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+
+        guard frontmostPID == ownPID || frontmostBundleID == ownBundleID else {
+            return false
+        }
+
+        if let targetPID = sessionTargetApplicationPID,
+           let targetApplication = NSRunningApplication(processIdentifier: targetPID),
+           !targetApplication.isTerminated {
+            VoxtLog.info(
+                "Restoring focus to session target app before text injection. bundleID=\(targetApplication.bundleIdentifier ?? "unknown"), pid=\(targetPID)"
+            )
+            return targetApplication.activate(options: [])
+        }
+
+        if let targetBundleID = sessionTargetApplicationBundleID,
+           let targetApplication = NSRunningApplication.runningApplications(withBundleIdentifier: targetBundleID)
+            .first(where: { !$0.isTerminated }) {
+            VoxtLog.info(
+                "Restoring focus to session target app by bundle ID before text injection. bundleID=\(targetBundleID), pid=\(targetApplication.processIdentifier)"
+            )
+            return targetApplication.activate(options: [])
+        }
+
+        VoxtLog.info(
+            "Session target app restoration skipped: target app unavailable. targetBundleID=\(sessionTargetApplicationBundleID ?? "nil"), targetPID=\(sessionTargetApplicationPID.map(String.init) ?? "nil")"
+        )
+        return false
+    }
+
     private func typeText(_ text: String) {
         guard !text.isEmpty else { return }
 
@@ -735,6 +771,10 @@ extension AppDelegate {
         let keepResultInClipboard = autoCopyWhenNoFocusedInput
 
         writeTextToPasteboard(text)
+
+        if restoreSessionTargetApplicationIfNeeded() {
+            Thread.sleep(forTimeInterval: 0.06)
+        }
 
         guard accessibilityTrusted else {
             promptForAccessibilityPermission()

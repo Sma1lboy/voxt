@@ -21,9 +21,14 @@ class SpeechTranscriber: ObservableObject, TranscriberProtocol {
     private var hasDeliveredFinalResult = false
 
     var onTranscriptionFinished: ((String) -> Void)?
+    private(set) var lastStartFailureMessage: String?
 
     init() {
         speechRecognizer = SFSpeechRecognizer(locale: Locale.current)
+        if speechRecognizer == nil {
+            lastStartFailureMessage = String(localized: "Direct Dictation is unavailable for the current language.")
+            VoxtLog.warning("Speech recognizer initialization failed for current locale.")
+        }
     }
 
     func setPreferredInputDevice(_ deviceID: AudioDeviceID?) {
@@ -44,7 +49,20 @@ class SpeechTranscriber: ObservableObject, TranscriberProtocol {
 
     func startRecording() {
         guard !isRecording else { return }
-        guard let recognizer = speechRecognizer, recognizer.isAvailable else { return }
+        lastStartFailureMessage = nil
+
+        guard let recognizer = speechRecognizer else {
+            let message = String(localized: "Direct Dictation is unavailable for the current language.")
+            lastStartFailureMessage = message
+            VoxtLog.warning("Speech transcriber start blocked: recognizer is unavailable for current locale.")
+            return
+        }
+        guard recognizer.isAvailable else {
+            let message = String(localized: "Direct Dictation is temporarily unavailable. Try again in a moment.")
+            lastStartFailureMessage = message
+            VoxtLog.warning("Speech transcriber start blocked: recognizer is not currently available.")
+            return
+        }
 
         cleanupSessionState()
         transcribedText = ""
@@ -54,7 +72,9 @@ class SpeechTranscriber: ObservableObject, TranscriberProtocol {
         do {
             try startSpeechRecognition(recognizer: recognizer)
             isRecording = true
+            lastStartFailureMessage = nil
         } catch {
+            lastStartFailureMessage = String(localized: "Direct Dictation failed to start recording.")
             VoxtLog.error("Speech transcriber start recording failed: \(error)")
             cleanupSessionState()
         }
@@ -78,6 +98,7 @@ class SpeechTranscriber: ObservableObject, TranscriberProtocol {
     private func cleanupSessionState() {
         finalizeTimeoutTask?.cancel()
         finalizeTimeoutTask = nil
+        isRecording = false
         clearRecognitionPipeline(cancelTask: true)
     }
 

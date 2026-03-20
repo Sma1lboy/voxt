@@ -248,6 +248,10 @@ class RecordingOverlayWindow: NSPanel {
 
         observe(state: state)
         updateAppearance(for: state, animated: isVisible)
+        hostingView?.layoutSubtreeIfNeeded()
+        contentView?.layoutSubtreeIfNeeded()
+        contentView?.displayIfNeeded()
+        displayIfNeeded()
 
         if !isVisible {
             alphaValue = 1

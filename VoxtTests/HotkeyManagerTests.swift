@@ -178,6 +178,74 @@ final class HotkeyManagerTests: XCTestCase {
         XCTAssertEqual(transcriptionDownCount, 1)
     }
 
+    func testPlainFnTapEmitsSingleTranscriptionCallback() {
+        let manager = HotkeyManager()
+        var transcriptionDownCount = 0
+        manager.onKeyDown = { transcriptionDownCount += 1 }
+
+        manager.testingHandleEvent(
+            type: .flagsChanged,
+            keyCode: UInt16(kVK_Function),
+            flags: .maskSecondaryFn
+        )
+        manager.testingHandleEvent(
+            type: .flagsChanged,
+            keyCode: UInt16(kVK_Function),
+            flags: []
+        )
+
+        XCTAssertEqual(transcriptionDownCount, 1)
+    }
+
+    func testFnTapSuppressedWhenChordIncludesNonModifierKey() {
+        let manager = HotkeyManager()
+        var transcriptionDownCount = 0
+        manager.onKeyDown = { transcriptionDownCount += 1 }
+
+        manager.testingHandleEvent(
+            type: .flagsChanged,
+            keyCode: UInt16(kVK_Function),
+            flags: .maskSecondaryFn
+        )
+        manager.testingHandleEvent(
+            type: .keyDown,
+            keyCode: UInt16(kVK_ANSI_A),
+            flags: .maskSecondaryFn
+        )
+        manager.testingHandleEvent(
+            type: .flagsChanged,
+            keyCode: UInt16(kVK_Function),
+            flags: []
+        )
+
+        XCTAssertEqual(transcriptionDownCount, 0)
+    }
+
+    func testLongPressFnEmitsDownThenUp() async {
+        let defaults = UserDefaults.standard
+        defaults.set(HotkeyPreference.TriggerMode.longPress.rawValue, forKey: AppPreferenceKey.hotkeyTriggerMode)
+
+        let manager = HotkeyManager()
+        var events: [String] = []
+        manager.onKeyDown = { events.append("down") }
+        manager.onKeyUp = { events.append("up") }
+
+        manager.testingHandleEvent(
+            type: .flagsChanged,
+            keyCode: UInt16(kVK_Function),
+            flags: .maskSecondaryFn
+        )
+        manager.testingHandleEvent(
+            type: .flagsChanged,
+            keyCode: UInt16(kVK_Function),
+            flags: []
+        )
+
+        try? await Task.sleep(for: .milliseconds(120))
+
+        XCTAssertEqual(events, ["down", "up"])
+    }
+
     private func combinedFlags(_ flags: CGEventFlags...) -> CGEventFlags {
         flags.reduce([]) { partialResult, next in
             partialResult.union(next)

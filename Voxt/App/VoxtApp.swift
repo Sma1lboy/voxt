@@ -171,6 +171,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var didCommitSessionOutput = false
     var activeRecordingSessionID = UUID()
     var isSessionCancellationRequested = false
+    var sessionTargetApplicationPID: pid_t?
+    var sessionTargetApplicationBundleID: String?
     var pendingTranscriptionStartTask: Task<Void, Never>?
     var enhancementContextSnapshot: EnhancementContextSnapshot?
     var lastEnhancementPromptContext: EnhancementPromptContext?
