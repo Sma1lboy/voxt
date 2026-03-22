@@ -24,7 +24,7 @@ final class MeetingDetailWindowManager {
         }
 
         let viewModel = MeetingDetailViewModel(
-            title: String(localized: "会议详情"),
+            title: String(localized: "Meeting Details"),
             subtitle: entry.createdAt.formatted(date: .abbreviated, time: .shortened),
             segments: entry.meetingSegments ?? [],
             audioURL: audioURL,
@@ -151,10 +151,10 @@ private final class MeetingDetailViewModel: ObservableObject {
         translationHandler: @escaping @MainActor (String, TranslationTargetLanguage) async throws -> String
     ) {
         self.mode = .live
-        self.title = String(localized: "会议详情")
+        self.title = String(localized: "Meeting Details")
         self.subtitle = liveState.isPaused
-            ? String(localized: "会议已暂停")
-            : String(localized: "会议进行中")
+            ? String(localized: "Meeting Paused")
+            : String(localized: "Meeting In Progress")
         self.segments = liveState.segments
         self.audioURL = nil
         self.isPaused = liveState.isPaused
@@ -177,8 +177,8 @@ private final class MeetingDetailViewModel: ObservableObject {
             .sink { [weak self] isPaused, isRecording in
                 self?.isPaused = isPaused
                 self?.subtitle = isPaused
-                    ? String(localized: "会议已暂停")
-                    : (isRecording ? String(localized: "会议进行中") : String(localized: "会议已结束"))
+                    ? String(localized: "Meeting Paused")
+                    : (isRecording ? String(localized: "Meeting In Progress") : String(localized: "Meeting Ended"))
             }
             .store(in: &cancellables)
 
@@ -510,11 +510,11 @@ private struct MeetingDetailWindowView: View {
 
     private var translationLanguageDialog: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(String(localized: "选择翻译语言"))
+            Text(String(localized: "Choose Translation Language"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.primary)
 
-            Text(String(localized: "详情里的翻译会只翻译 them 的内容。"))
+            Text(String(localized: "Realtime translation in detail view only translates Them segments."))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
 
@@ -603,7 +603,7 @@ private struct MeetingDetailWindowView: View {
             Spacer(minLength: 12)
 
             HStack(spacing: 8) {
-                Text(String(localized: "实时翻译"))
+                Text(String(localized: "Realtime Translation"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
 
@@ -665,15 +665,15 @@ private struct MeetingDetailWindowView: View {
                             .frame(width: 96, alignment: .trailing)
                     }
                 } else {
-                    Text(String(localized: "这条会议记录还没有可回放音频。"))
+                    Text(String(localized: "No playable audio is available for this meeting record yet."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             } else {
                 Text(
                     viewModel.canExport
-                        ? String(localized: "会议已暂停，可以导出当前记录。")
-                        : String(localized: "会议进行中，暂停后可导出当前记录。")
+                        ? String(localized: "The meeting is paused. You can export the current record.")
+                        : String(localized: "The meeting is in progress. Pause it to export the current record.")
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

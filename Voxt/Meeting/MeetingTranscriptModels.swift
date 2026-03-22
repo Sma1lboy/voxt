@@ -7,9 +7,9 @@ enum MeetingSpeaker: String, Codable, Hashable {
     nonisolated var displayTitle: String {
         switch self {
         case .me:
-            return "我"
+            return String(localized: "Me")
         case .them:
-            return "them"
+            return String(localized: "Them")
         }
     }
 }

@@ -51,6 +51,7 @@ enum ConfigurationTransferManager {
     struct GeneralSettings: Codable {
         var interfaceLanguage: String
         var selectedInputDeviceID: Int
+        var modelStorageRootPath: String
         var interactionSoundsEnabled: Bool
         var interactionSoundPreset: String
         var muteSystemAudioWhileRecording: Bool
@@ -88,6 +89,7 @@ enum ConfigurationTransferManager {
         private enum CodingKeys: String, CodingKey {
             case interfaceLanguage
             case selectedInputDeviceID
+            case modelStorageRootPath
             case interactionSoundsEnabled
             case interactionSoundPreset
             case muteSystemAudioWhileRecording
@@ -126,6 +128,7 @@ enum ConfigurationTransferManager {
         init(
             interfaceLanguage: String,
             selectedInputDeviceID: Int,
+            modelStorageRootPath: String,
             interactionSoundsEnabled: Bool,
             interactionSoundPreset: String,
             muteSystemAudioWhileRecording: Bool,
@@ -162,6 +165,7 @@ enum ConfigurationTransferManager {
         ) {
             self.interfaceLanguage = interfaceLanguage
             self.selectedInputDeviceID = selectedInputDeviceID
+            self.modelStorageRootPath = modelStorageRootPath
             self.interactionSoundsEnabled = interactionSoundsEnabled
             self.interactionSoundPreset = interactionSoundPreset
             self.muteSystemAudioWhileRecording = muteSystemAudioWhileRecording
@@ -201,6 +205,7 @@ enum ConfigurationTransferManager {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             interfaceLanguage = try container.decode(String.self, forKey: .interfaceLanguage)
             selectedInputDeviceID = try container.decode(Int.self, forKey: .selectedInputDeviceID)
+            modelStorageRootPath = try container.decodeIfPresent(String.self, forKey: .modelStorageRootPath) ?? ""
             interactionSoundsEnabled = try container.decode(Bool.self, forKey: .interactionSoundsEnabled)
             interactionSoundPreset = try container.decode(String.self, forKey: .interactionSoundPreset)
             muteSystemAudioWhileRecording = try container.decodeIfPresent(Bool.self, forKey: .muteSystemAudioWhileRecording) ?? false
@@ -763,6 +768,7 @@ enum ConfigurationTransferManager {
         let general = GeneralSettings(
             interfaceLanguage: defaults.string(forKey: AppPreferenceKey.interfaceLanguage) ?? AppInterfaceLanguage.system.rawValue,
             selectedInputDeviceID: defaults.integer(forKey: AppPreferenceKey.selectedInputDeviceID),
+            modelStorageRootPath: defaults.string(forKey: AppPreferenceKey.modelStorageRootPath) ?? "",
             interactionSoundsEnabled: defaults.bool(forKey: AppPreferenceKey.interactionSoundsEnabled),
             interactionSoundPreset: defaults.string(forKey: AppPreferenceKey.interactionSoundPreset) ?? "",
             muteSystemAudioWhileRecording: defaults.bool(forKey: AppPreferenceKey.muteSystemAudioWhileRecording),
@@ -801,7 +807,7 @@ enum ConfigurationTransferManager {
         )
 
         return ExportPayload(
-            version: 13,
+            version: 14,
             exportedAt: ISO8601DateFormatter().string(from: Date()),
             general: general,
             model: .init(
@@ -882,6 +888,8 @@ enum ConfigurationTransferManager {
 
         defaults.set(general.interfaceLanguage, forKey: AppPreferenceKey.interfaceLanguage)
         defaults.set(general.selectedInputDeviceID, forKey: AppPreferenceKey.selectedInputDeviceID)
+        defaults.set(general.modelStorageRootPath, forKey: AppPreferenceKey.modelStorageRootPath)
+        defaults.removeObject(forKey: AppPreferenceKey.modelStorageRootBookmark)
         defaults.set(general.interactionSoundsEnabled, forKey: AppPreferenceKey.interactionSoundsEnabled)
         defaults.set(general.interactionSoundPreset, forKey: AppPreferenceKey.interactionSoundPreset)
         defaults.set(general.muteSystemAudioWhileRecording, forKey: AppPreferenceKey.muteSystemAudioWhileRecording)

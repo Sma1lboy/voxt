@@ -15,17 +15,17 @@ final class MeetingSystemAudioCapture: @unchecked Sendable {
         var errorDescription: String? {
             switch self {
             case .outputDeviceUnavailable(let status):
-                return "System output device unavailable (\(status))."
+                return AppLocalization.format("System output device unavailable (%d).", Int(status))
             case .tapCreationFailed(let status):
-                return "System audio tap creation failed (\(status))."
+                return AppLocalization.format("System audio tap creation failed (%d).", Int(status))
             case .aggregateDeviceCreationFailed(let status):
-                return "System audio aggregate device failed (\(status))."
+                return AppLocalization.format("System audio aggregate device failed (%d).", Int(status))
             case .ioProcCreationFailed(let status):
-                return "System audio callback setup failed (\(status))."
+                return AppLocalization.format("System audio callback setup failed (%d).", Int(status))
             case .startFailed(let status):
-                return "System audio capture failed to start (\(status))."
+                return AppLocalization.format("System audio capture failed to start (%d).", Int(status))
             case .invalidTapFormat:
-                return "System audio tap returned an invalid format."
+                return AppLocalization.localizedString("System audio tap returned an invalid format.")
             }
         }
     }

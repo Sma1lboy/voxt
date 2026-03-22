@@ -47,7 +47,7 @@ struct PermissionsSettingsView: View {
             case .inputMonitoring:
                 return "Required for reliable global modifier hotkeys (such as fn)."
             case .systemAudioCapture:
-                return "Required only when muting other apps' media audio during recording is enabled."
+                return "Required for Meeting Notes and for muting other apps' media audio during recording."
             }
         }
     }

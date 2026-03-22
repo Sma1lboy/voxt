@@ -119,7 +119,7 @@ private struct MeetingOverlayCard: View {
 
             if !state.isCollapsed {
                 HStack(spacing: 8) {
-                    Text(String(localized: "实时翻译"))
+                    Text(String(localized: "Realtime Translation"))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.72))
 
@@ -206,11 +206,11 @@ private struct MeetingOverlayCard: View {
 
     private var realtimeTranslationLanguageDialog: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(String(localized: "选择翻译语言"))
+            Text(String(localized: "Choose Translation Language"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.92))
 
-            Text(String(localized: "实时翻译会只翻译 them 的内容。"))
+            Text(String(localized: "Realtime translation only translates Them segments."))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
 
@@ -309,16 +309,16 @@ private struct MeetingOverlayCard: View {
 
     private var meetingCloseConfirmationDialog: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(String(localized: "结束这场会议转录？"))
+            Text(String(localized: "End this meeting transcription?"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.92))
 
-            Text(String(localized: "取消转录不会保存历史记录；结束转录会保存历史记录并打开会议详情。"))
+            Text(String(localized: "Canceling will discard this meeting; finishing will save it and open Meeting Details."))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
 
             HStack(spacing: 10) {
-                Button(String(localized: "取消转录")) {
+                Button(String(localized: "Cancel Transcription")) {
                     onConfirmCancelMeeting()
                 }
                 .buttonStyle(.plain)
@@ -334,7 +334,7 @@ private struct MeetingOverlayCard: View {
                         .strokeBorder(Color.red.opacity(0.28), lineWidth: 1)
                 )
 
-                Button(String(localized: "结束转录")) {
+                Button(String(localized: "Finish Transcription")) {
                     onConfirmFinishMeeting()
                 }
                 .buttonStyle(.plain)
