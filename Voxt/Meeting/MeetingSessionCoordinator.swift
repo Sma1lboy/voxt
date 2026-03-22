@@ -56,20 +56,23 @@ final class MeetingSessionCoordinator {
     func prepareForStart() {
         guard !isActive else { return }
         cleanupSessionState(shouldLogCaptureStop: false)
+        let needsModelInitialization = !whisperModelManager.isCurrentModelLoaded
         overlayState.reset()
         overlayState.isPresented = true
         overlayState.isCollapsed = UserDefaults.standard.object(forKey: AppPreferenceKey.meetingOverlayCollapsed) as? Bool ?? false
         overlayState.realtimeTranslateEnabled = UserDefaults.standard.object(forKey: AppPreferenceKey.meetingRealtimeTranslateEnabled) as? Bool ?? false
         overlayState.audioLevel = 0
         overlayState.waveformState.reset()
-        overlayState.waveformState.setActive(true)
-        overlayState.isRecording = true
+        overlayState.waveformState.setActive(!needsModelInitialization)
+        overlayState.isRecording = !needsModelInitialization
+        overlayState.isModelInitializing = needsModelInitialization
         isStarting = true
     }
 
     func cancelPendingStart() {
         guard isStarting else { return }
         cleanupSessionState(shouldLogCaptureStop: false)
+        resetSessionPresentationState()
         overlayState.reset()
     }
 
@@ -104,15 +107,18 @@ final class MeetingSessionCoordinator {
             try Task.checkCancellation()
         } catch is CancellationError {
             cleanupSessionState(shouldLogCaptureStop: false)
+            resetSessionPresentationState()
             overlayState.reset()
             return nil
         } catch {
             cleanupSessionState()
+            resetSessionPresentationState()
             overlayState.reset()
             return error.localizedDescription
         }
 
         isStarting = false
+        overlayState.isModelInitializing = false
         overlayState.isRecording = true
         overlayState.isPaused = false
         overlayState.waveformState.setActive(true)
@@ -155,6 +161,7 @@ final class MeetingSessionCoordinator {
         let visibleSnapshotSegments = finalizedSegments(from: overlayState.segments)
         overlayState.isRecording = false
         overlayState.isPaused = false
+        overlayState.isModelInitializing = false
         overlayState.audioLevel = 0
         overlayState.waveformState.setActive(false)
 
@@ -197,6 +204,7 @@ final class MeetingSessionCoordinator {
                 )
             }
             self.cleanupSessionState()
+            self.resetSessionPresentationState()
             self.overlayState.reset()
             self.onSessionFinished?(result)
         }
@@ -235,8 +243,13 @@ final class MeetingSessionCoordinator {
             (systemLevel * 0.42) +
             max(micLevel * 0.16, systemLevel * 0.1)
         )
-        overlayState.audioLevel = displayLevel
-        overlayState.waveformState.ingest(level: displayLevel)
+        if overlayState.isModelInitializing {
+            overlayState.audioLevel = 0
+            overlayState.waveformState.ingest(level: 0)
+        } else {
+            overlayState.audioLevel = displayLevel
+            overlayState.waveformState.ingest(level: displayLevel)
+        }
 
         if !loggedInitialBufferSpeakers.contains(speaker) {
             loggedInitialBufferSpeakers.insert(speaker)
@@ -289,19 +302,7 @@ final class MeetingSessionCoordinator {
             await MainActor.run { [weak self] in
                 guard let self, self.overlayState.isPresented else { return }
                 let shouldTranslate = self.shouldTranslate(segment: segment)
-                let storedSegment = shouldTranslate
-                    ? segment.updatingTranslation(translatedText: nil, isTranslationPending: true)
-                    : segment
-                self.overlayState.segments.append(storedSegment)
-                self.overlayState.segments.sort { lhs, rhs in
-                    if lhs.startSeconds == rhs.startSeconds {
-                        return lhs.id.uuidString < rhs.id.uuidString
-                    }
-                    return lhs.startSeconds < rhs.startSeconds
-                }
-                if shouldTranslate {
-                    self.queueRealtimeTranslation(for: storedSegment)
-                }
+                self.appendTranscriptSegment(segment, shouldTranslate: shouldTranslate)
             }
         }
     }
@@ -343,9 +344,15 @@ final class MeetingSessionCoordinator {
         }
         whisper = nil
         transcriber = nil
+        overlayState.isModelInitializing = false
         Task {
             await audioArchive.reset()
         }
+    }
+
+    private func resetSessionPresentationState() {
+        UserDefaults.standard.set(false, forKey: AppPreferenceKey.meetingOverlayCollapsed)
+        UserDefaults.standard.set(false, forKey: AppPreferenceKey.meetingRealtimeTranslateEnabled)
     }
 
     private func startCaptures() throws {
@@ -490,6 +497,53 @@ final class MeetingSessionCoordinator {
             }
         }
         translationTasks[segment.id] = task
+    }
+
+    private func appendTranscriptSegment(_ segment: MeetingTranscriptSegment, shouldTranslate: Bool) {
+        let appendedSegment = shouldTranslate
+            ? segment.updatingTranslation(translatedText: nil, isTranslationPending: true)
+            : segment
+        overlayState.segments.append(appendedSegment)
+        overlayState.segments.sort { lhs, rhs in
+            if lhs.startSeconds == rhs.startSeconds {
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            return lhs.startSeconds < rhs.startSeconds
+        }
+
+        guard let insertedIndex = overlayState.segments.firstIndex(where: { $0.id == appendedSegment.id }) else {
+            if shouldTranslate {
+                queueRealtimeTranslation(for: appendedSegment)
+            }
+            return
+        }
+
+        var effectiveSegment = overlayState.segments[insertedIndex]
+        if insertedIndex > 0,
+           let merged = MeetingTranscriptFormatter.mergedAdjacentSegment(
+                previous: overlayState.segments[insertedIndex - 1],
+                next: overlayState.segments[insertedIndex]
+           ) {
+            cancelTranslationTask(for: overlayState.segments[insertedIndex - 1].id)
+            cancelTranslationTask(for: overlayState.segments[insertedIndex].id)
+            overlayState.segments[insertedIndex - 1] = merged
+            overlayState.segments.remove(at: insertedIndex)
+            effectiveSegment = merged
+        }
+
+        if shouldTranslate || effectiveSegment.speaker == .them {
+            queueRealtimeTranslation(
+                for: effectiveSegment.updatingTranslation(
+                    translatedText: nil,
+                    isTranslationPending: true
+                )
+            )
+        }
+    }
+
+    private func cancelTranslationTask(for segmentID: UUID) {
+        translationTasks[segmentID]?.cancel()
+        translationTasks[segmentID] = nil
     }
 
     private func cancelTranslationTasks() {

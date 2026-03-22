@@ -210,7 +210,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var pendingMeetingSessionCompletionDisposition: MeetingSessionCompletionDisposition = .save
     let tapStopGuardInterval: TimeInterval = 0.35
     let transcriptionStartDebounceInterval: TimeInterval = 0.08
-    let whisperWarmupDelay: Duration = .seconds(1)
     var settingsWindowPresentationState = SettingsWindowPresentationState()
 
     override init() {
@@ -258,6 +257,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             AppPreferenceKey.whisperVADEnabled: true,
             AppPreferenceKey.whisperTimestampsEnabled: false,
             AppPreferenceKey.whisperRealtimeEnabled: true,
+            AppPreferenceKey.whisperKeepResidentLoaded: true,
             AppPreferenceKey.translationFallbackModelProvider: TranslationModelProvider.customLLM.rawValue,
             AppPreferenceKey.rewriteCustomLLMModelRepo: CustomLLMModelManager.defaultModelRepo,
             AppPreferenceKey.remoteASRSelectedProvider: RemoteASRProvider.openAIWhisper.rawValue,
@@ -506,23 +506,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func scheduleWhisperIdleWarmupIfNeeded() {
         whisperWarmupTask?.cancel()
-        guard transcriptionEngine == .whisperKit || meetingNotesBetaEnabled else { return }
+        guard transcriptionEngine == .whisperKit else { return }
+        guard UserDefaults.standard.object(forKey: AppPreferenceKey.whisperKeepResidentLoaded) as? Bool ?? true else { return }
         guard isWhisperReady else { return }
 
         whisperWarmupTask = Task { @MainActor [weak self] in
             guard let self else { return }
-
-            do {
-                try await Task.sleep(for: self.whisperWarmupDelay)
-            } catch {
-                return
-            }
-
             guard !Task.isCancelled else { return }
-            guard self.transcriptionEngine == .whisperKit || self.meetingNotesBetaEnabled else { return }
+            guard self.transcriptionEngine == .whisperKit else { return }
+            guard UserDefaults.standard.object(forKey: AppPreferenceKey.whisperKeepResidentLoaded) as? Bool ?? true else { return }
             guard self.isWhisperReady else { return }
-            guard !self.isSessionActive else { return }
-            guard !self.meetingSessionCoordinator.isActive else { return }
 
             self.whisperModelManager.beginActiveUse()
             defer {

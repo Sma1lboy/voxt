@@ -529,8 +529,9 @@ extension ModelSettingsView {
         let vad = AppLocalization.localizedString(whisperVADEnabled ? "VAD On" : "VAD Off")
         let timestamps = AppLocalization.localizedString(whisperTimestampsEnabled ? "Timestamps On" : "Timestamps Off")
         let realtime = AppLocalization.localizedString(whisperRealtimeEnabled ? "Realtime On" : "Quality Mode")
+        let resident = AppLocalization.localizedString(whisperKeepResidentLoaded ? "Resident On" : "Resident Off")
         let temperature = String(format: "%.1f", whisperTemperature)
-        return AppLocalization.format("Temperature: %@ · %@ · %@ · %@", temperature, vad, timestamps, realtime)
+        return AppLocalization.format("Temperature: %@ · %@ · %@ · %@ · %@", temperature, vad, timestamps, realtime, resident)
     }
 
     func asrCredentialHint(for provider: RemoteASRProvider) -> String? {

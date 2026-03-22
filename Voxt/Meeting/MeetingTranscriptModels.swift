@@ -58,6 +58,8 @@ struct MeetingTranscriptSegment: Identifiable, Codable, Hashable {
 }
 
 enum MeetingTranscriptFormatter {
+    private static let adjacentMergeGapThreshold: TimeInterval = 2.0
+
     nonisolated static func meaningfulSegments(for segments: [MeetingTranscriptSegment]) -> [MeetingTranscriptSegment] {
         segments.filter { segment in
             let hasOriginalText = !segment.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -84,12 +86,13 @@ enum MeetingTranscriptFormatter {
             }
         }
 
-        return mergedByID.values.sorted { lhs, rhs in
+        let sorted = mergedByID.values.sorted { lhs, rhs in
             if lhs.startSeconds == rhs.startSeconds {
                 return lhs.id.uuidString < rhs.id.uuidString
             }
             return lhs.startSeconds < rhs.startSeconds
         }
+        return mergedAdjacentSegments(in: sorted)
     }
 
     nonisolated static func timestampString(for seconds: TimeInterval) -> String {
@@ -123,6 +126,41 @@ enum MeetingTranscriptFormatter {
         return lines.joined(separator: "\n")
     }
 
+    nonisolated static func mergedAdjacentSegment(
+        previous: MeetingTranscriptSegment,
+        next: MeetingTranscriptSegment
+    ) -> MeetingTranscriptSegment? {
+        guard previous.speaker == next.speaker else { return nil }
+        guard next.startSeconds >= previous.startSeconds else { return nil }
+        let previousEnd = previous.endSeconds ?? previous.startSeconds
+        guard next.startSeconds - previousEnd <= adjacentMergeGapThreshold else { return nil }
+
+        return MeetingTranscriptSegment(
+            id: previous.id,
+            speaker: previous.speaker,
+            startSeconds: previous.startSeconds,
+            endSeconds: max(previousEnd, next.endSeconds ?? next.startSeconds),
+            text: mergedText(previous.text, next.text),
+            translatedText: nil,
+            isTranslationPending: false
+        )
+    }
+
+    private nonisolated static func mergedAdjacentSegments(
+        in segments: [MeetingTranscriptSegment]
+    ) -> [MeetingTranscriptSegment] {
+        var merged: [MeetingTranscriptSegment] = []
+        for segment in segments {
+            if let last = merged.last,
+               let mergedSegment = mergedAdjacentSegment(previous: last, next: segment) {
+                merged[merged.count - 1] = mergedSegment
+            } else {
+                merged.append(segment)
+            }
+        }
+        return merged
+    }
+
     private nonisolated static func mergedSegment(
         preferred: MeetingTranscriptSegment,
         fallback: MeetingTranscriptSegment
@@ -141,5 +179,30 @@ enum MeetingTranscriptFormatter {
             translatedText: (translatedText?.isEmpty == false ? translatedText : fallbackTranslatedText),
             isTranslationPending: preferred.isTranslationPending && (translatedText?.isEmpty ?? true)
         )
+    }
+
+    private nonisolated static func mergedText(_ lhs: String, _ rhs: String) -> String {
+        let left = lhs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let right = rhs.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !left.isEmpty else { return right }
+        guard !right.isEmpty else { return left }
+
+        let leftLast = left.unicodeScalars.last
+        let rightFirst = right.unicodeScalars.first
+        let separator = needsInlineSeparator(leftLast: leftLast, rightFirst: rightFirst) ? " " : ""
+        return left + separator + right
+    }
+
+    private nonisolated static func needsInlineSeparator(
+        leftLast: UnicodeScalar?,
+        rightFirst: UnicodeScalar?
+    ) -> Bool {
+        guard let leftLast, let rightFirst else { return true }
+        let punctuationScalars = CharacterSet(charactersIn: " \t\n\r,.!?;:，。！？；：、)]}\"'》】）")
+        if punctuationScalars.contains(leftLast) || punctuationScalars.contains(rightFirst) {
+            return false
+        }
+        let alphanumerics = CharacterSet.alphanumerics
+        return alphanumerics.contains(leftLast) && alphanumerics.contains(rightFirst)
     }
 }

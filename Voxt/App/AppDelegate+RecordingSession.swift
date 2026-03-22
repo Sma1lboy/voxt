@@ -419,9 +419,13 @@ extension AppDelegate {
         let whisper = whisperTranscriber ?? WhisperKitTranscriber(modelManager: whisperModelManager)
         whisperTranscriber = whisper
         let sessionID = activeRecordingSessionID
+        let needsModelInitialization = !whisperModelManager.isCurrentModelLoaded
 
         overlayState.statusMessage = ""
+        overlayState.isModelInitializing = needsModelInitialization
+        overlayState.initializingEngine = needsModelInitialization ? .whisperKit : nil
         whisper.transcribedText = ""
+        whisper.isModelInitializing = needsModelInitialization
         whisper.setPreferredInputDevice(selectedInputDeviceID)
         whisper.onPartialTranscription = { [weak self] text in
             guard let self, self.shouldHandleCallbacks(for: sessionID) else { return }

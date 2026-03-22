@@ -78,6 +78,13 @@ extension AppDelegate {
 
     func requestMeetingSessionCloseConfirmation() {
         guard meetingSessionCoordinator.isActive else { return }
+        if meetingSessionCoordinator.overlayState.segments.isEmpty {
+            cancelMeetingSessionWithoutSaving()
+            return
+        }
+        if meetingSessionCoordinator.overlayState.isCollapsed {
+            meetingSessionCoordinator.setCollapsed(false)
+        }
         meetingSessionCoordinator.overlayState.isRealtimeTranslationLanguagePickerPresented = false
         meetingSessionCoordinator.overlayState.isCloseConfirmationPresented = true
     }
@@ -186,8 +193,6 @@ extension AppDelegate {
     private func startMeetingSession() async {
         guard preflightPermissionsForMeeting() else { return }
         pendingMeetingSessionCompletionDisposition = .save
-        whisperWarmupTask?.cancel()
-        whisperWarmupTask = nil
 
         meetingSessionCoordinator.onSessionFinished = { [weak self] result in
             Task { @MainActor [weak self] in

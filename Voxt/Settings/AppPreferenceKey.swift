@@ -9,6 +9,7 @@ enum AppPreferenceKey {
     static let whisperVADEnabled = "whisperVADEnabled"
     static let whisperTimestampsEnabled = "whisperTimestampsEnabled"
     static let whisperRealtimeEnabled = "whisperRealtimeEnabled"
+    static let whisperKeepResidentLoaded = "whisperKeepResidentLoaded"
     static let customLLMModelRepo = "customLLMModelRepo"
     static let translationCustomLLMModelRepo = "translationCustomLLMModelRepo"
     static let translationModelProvider = "translationModelProvider"

@@ -60,12 +60,14 @@ private struct MeetingOverlayCard: View {
                     Rectangle()
                         .fill(.white.opacity(0.08))
                         .frame(height: 1)
+                        .padding(.top, 6)
+                        .padding(.bottom, 8)
 
                     transcriptContent
                 }
             }
             .padding(.horizontal, 18)
-            .padding(.vertical, state.isCollapsed ? 12 : 16)
+            .padding(.vertical, state.isCollapsed ? 10 : 14)
             .background(cardBackground)
             .compositingGroup()
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -97,11 +99,20 @@ private struct MeetingOverlayCard: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
             HStack(alignment: .center, spacing: 10) {
-                TranscriptionModeIconView()
-                    .frame(width: 18, height: 18)
+                Group {
+                    if state.isModelInitializing {
+                        ModelInitializingIconView()
+                    } else {
+                        TranscriptionModeIconView()
+                    }
+                }
+                .frame(width: 18, height: 18)
 
-                MeetingMiniWaveform(waveformState: state.waveformState)
-                    .frame(width: state.isCollapsed ? 128 : 116, height: 28)
+                MeetingMiniWaveform(
+                    waveformState: state.waveformState,
+                    isSubdued: state.isModelInitializing
+                )
+                    .frame(width: state.isCollapsed ? 96 : 116, height: 28)
             }
 
             Spacer(minLength: 12)
@@ -112,24 +123,15 @@ private struct MeetingOverlayCard: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.72))
 
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 999, style: .continuous)
-                            .fill(.white.opacity(0.10))
-                            .frame(width: 42, height: 24)
-
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { state.realtimeTranslateEnabled },
-                                set: { onRealtimeTranslateToggle($0) }
-                            )
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { state.realtimeTranslateEnabled },
+                            set: { onRealtimeTranslateToggle($0) }
                         )
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(.accentColor)
-                        .scaleEffect(0.82)
-                    }
-                    .frame(width: 42, height: 24)
+                    )
+                    .labelsHidden()
+                    .toggleStyle(MeetingInlineSwitchStyle())
                 }
 
                 Rectangle()
@@ -212,47 +214,50 @@ private struct MeetingOverlayCard: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
 
-            VStack(spacing: 6) {
-                ForEach(TranslationTargetLanguage.allCases) { language in
-                    Button {
-                        state.realtimeTranslationDraftLanguageRaw = language.rawValue
-                    } label: {
-                        HStack(spacing: 10) {
-                            Text(language.title)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.92))
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(TranslationTargetLanguage.allCases) { language in
+                        Button {
+                            state.realtimeTranslationDraftLanguageRaw = language.rawValue
+                        } label: {
+                            HStack(spacing: 10) {
+                                Text(language.title)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.92))
 
-                            Spacer(minLength: 8)
+                                Spacer(minLength: 8)
 
-                            if state.realtimeTranslationDraftLanguageRaw == language.rawValue {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(Color.accentColor.opacity(0.95))
+                                if state.realtimeTranslationDraftLanguageRaw == language.rawValue {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(Color.accentColor.opacity(0.95))
+                                }
                             }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(
+                                        state.realtimeTranslationDraftLanguageRaw == language.rawValue
+                                            ? Color.accentColor.opacity(0.20)
+                                            : .white.opacity(0.05)
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(
+                                        state.realtimeTranslationDraftLanguageRaw == language.rawValue
+                                            ? Color.accentColor.opacity(0.36)
+                                            : .white.opacity(0.08),
+                                        lineWidth: 1
+                                    )
+                            )
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(
-                                    state.realtimeTranslationDraftLanguageRaw == language.rawValue
-                                        ? Color.accentColor.opacity(0.20)
-                                        : .white.opacity(0.05)
-                                )
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(
-                                    state.realtimeTranslationDraftLanguageRaw == language.rawValue
-                                        ? Color.accentColor.opacity(0.36)
-                                        : .white.opacity(0.08),
-                                    lineWidth: 1
-                                )
-                        )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
+            .frame(maxHeight: 220)
 
             HStack(spacing: 10) {
                 Button(String(localized: "取消")) {
@@ -371,5 +376,29 @@ private struct MeetingOverlayCard: View {
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(.black.opacity(cardOpacity))
+    }
+}
+
+private struct MeetingInlineSwitchStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                Capsule(style: .continuous)
+                    .fill(configuration.isOn ? Color.accentColor.opacity(0.92) : .white.opacity(0.10))
+                    .frame(width: 36, height: 20)
+
+                Circle()
+                    .fill(.white.opacity(0.96))
+                    .frame(width: 16, height: 16)
+                    .padding(2)
+            }
+            .animation(.easeInOut(duration: 0.16), value: configuration.isOn)
+        }
+        .frame(width: 36, height: 20)
+        .contentShape(Capsule(style: .continuous))
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isButton)
     }
 }

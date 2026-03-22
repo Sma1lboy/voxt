@@ -23,6 +23,7 @@ struct MeetingSessionResult {
 final class MeetingOverlayState: ObservableObject {
     @Published var isPresented = false
     @Published var isRecording = false
+    @Published var isModelInitializing = false
     @Published var isPaused = false
     @Published var isCollapsed = false
     @Published var audioLevel: Float = 0
@@ -37,6 +38,7 @@ final class MeetingOverlayState: ObservableObject {
     func reset() {
         isPresented = false
         isRecording = false
+        isModelInitializing = false
         isPaused = false
         isCollapsed = false
         audioLevel = 0

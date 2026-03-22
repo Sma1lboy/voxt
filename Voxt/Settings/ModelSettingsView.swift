@@ -14,6 +14,7 @@ struct ModelSettingsView: View {
     @AppStorage(AppPreferenceKey.whisperVADEnabled) var whisperVADEnabled = true
     @AppStorage(AppPreferenceKey.whisperTimestampsEnabled) var whisperTimestampsEnabled = false
     @AppStorage(AppPreferenceKey.whisperRealtimeEnabled) var whisperRealtimeEnabled = true
+    @AppStorage(AppPreferenceKey.whisperKeepResidentLoaded) var whisperKeepResidentLoaded = true
     @AppStorage(AppPreferenceKey.customLLMModelRepo) var customLLMRepo = CustomLLMModelManager.defaultModelRepo
     @AppStorage(AppPreferenceKey.translationCustomLLMModelRepo) var translationCustomLLMRepo = CustomLLMModelManager.defaultModelRepo
     @AppStorage(AppPreferenceKey.rewriteCustomLLMModelRepo) var rewriteCustomLLMRepo = CustomLLMModelManager.defaultModelRepo
@@ -199,6 +200,24 @@ struct ModelSettingsView: View {
                 return
             }
             whisperModelManager.updateModel(id: canonicalModelID)
+        }
+        .onChange(of: whisperKeepResidentLoaded) { _, _ in
+            whisperModelManager.refreshResidencyPolicy()
+            guard selectedEngine == .whisperKit, whisperKeepResidentLoaded else { return }
+            Task { @MainActor in
+                whisperModelManager.beginActiveUse()
+                defer { whisperModelManager.endActiveUse() }
+                _ = try? await whisperModelManager.loadWhisper()
+            }
+        }
+        .onChange(of: engineRaw) { _, _ in
+            whisperModelManager.refreshResidencyPolicy()
+            guard selectedEngine == .whisperKit, whisperKeepResidentLoaded else { return }
+            Task { @MainActor in
+                whisperModelManager.beginActiveUse()
+                defer { whisperModelManager.endActiveUse() }
+                _ = try? await whisperModelManager.loadWhisper()
+            }
         }
         .onChange(of: customLLMRepo) { _, newValue in
             customLLMManager.updateModel(repo: newValue)

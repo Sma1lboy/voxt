@@ -518,13 +518,50 @@ private struct MeetingDetailWindowView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
 
-            Picker("", selection: $viewModel.translationDraftLanguageRaw) {
-                ForEach(TranslationTargetLanguage.allCases) { language in
-                    Text(language.title).tag(language.rawValue)
+            ScrollView {
+                VStack(spacing: 6) {
+                    ForEach(TranslationTargetLanguage.allCases) { language in
+                        Button {
+                            viewModel.translationDraftLanguageRaw = language.rawValue
+                        } label: {
+                            HStack(spacing: 10) {
+                                Text(language.title)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.primary)
+
+                                Spacer(minLength: 8)
+
+                                if viewModel.translationDraftLanguageRaw == language.rawValue {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(Color.accentColor.opacity(0.95))
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(
+                                        viewModel.translationDraftLanguageRaw == language.rawValue
+                                            ? Color.accentColor.opacity(0.14)
+                                            : Color.primary.opacity(0.04)
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(
+                                        viewModel.translationDraftLanguageRaw == language.rawValue
+                                            ? Color.accentColor.opacity(0.28)
+                                            : Color.primary.opacity(0.08),
+                                        lineWidth: 1
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
+            .frame(maxHeight: 220)
 
             HStack(spacing: 10) {
                 Button(String(localized: "取消")) {

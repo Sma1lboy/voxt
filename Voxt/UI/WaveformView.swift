@@ -8,6 +8,8 @@ struct WaveformView: View {
 
     var displayMode: OverlayDisplayMode
     var sessionIconMode: OverlaySessionIconMode
+    var isModelInitializing: Bool = false
+    var initializingEngine: TranscriptionEngine? = nil
     var audioLevel: Float
     var isRecording: Bool
     var shouldAnimate: Bool
@@ -50,6 +52,7 @@ struct WaveformView: View {
     private var cardOpacity: Double { Double(min(max(overlayCardOpacity, 0), 100)) / 100.0 }
     private var textOverflows: Bool { displayText.count > 38 }
     private var showsLoadingSpinner: Bool { isEnhancing || isRequesting }
+    private var showsInitializationIcon: Bool { isModelInitializing && !showsLoadingSpinner }
 
     var body: some View {
         Group {
@@ -171,6 +174,9 @@ struct WaveformView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.95))
+                .frame(width: 14, height: 14, alignment: .center)
+        } else if showsInitializationIcon {
+            ModelInitializingIconView()
                 .frame(width: 14, height: 14, alignment: .center)
         } else {
             compactModeIcon
@@ -300,6 +306,9 @@ struct WaveformView: View {
         if showsLoadingSpinner {
             LoadingSpinnerIconView(isAnimating: shouldAnimate)
                 .frame(width: 14, height: 14)
+        } else if showsInitializationIcon {
+            ModelInitializingIconView()
+                .frame(width: 14, height: 14)
         } else {
             switch sessionIconMode {
             case .transcription:
@@ -324,6 +333,11 @@ struct WaveformView: View {
         let phase = phases[index]
         let sine = (sin(phase) + 1) / 2
 
+        if isModelInitializing {
+            let quietPattern: [CGFloat] = [4.0, 4.7, 5.4, 6.0, 5.0, 4.3, 5.2, 5.8]
+            return quietPattern[index % quietPattern.count]
+        }
+
         if isRecording {
             let level = normalizedAudioLevel(audioLevel)
             let audioEnvelope = pow(level, 0.84)
@@ -345,6 +359,9 @@ struct WaveformView: View {
     }
 
     private func glowOpacity(for index: Int) -> Double {
+        if isModelInitializing {
+            return 0.03
+        }
         guard isRecording else { return 0.08 }
         let level = Double(normalizedAudioLevel(audioLevel))
         let travelEnvelope = Double(recordingTravelEnvelope(for: index))

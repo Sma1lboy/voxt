@@ -51,6 +51,7 @@ class MLXTranscriber: ObservableObject, TranscriberProtocol {
     }
 
     @Published var isRecording = false
+    @Published var isModelInitializing = false
     @Published var audioLevel: Float = 0.0
     @Published var transcribedText = ""
     @Published var isEnhancing = false
@@ -100,6 +101,7 @@ class MLXTranscriber: ObservableObject, TranscriberProtocol {
         cancelActiveTasks()
         resetTransientState()
         sessionRevision += 1
+        isModelInitializing = modelManager.state != .ready
 
         do {
             let inputNode = audioEngine.inputNode
@@ -278,6 +280,9 @@ class MLXTranscriber: ObservableObject, TranscriberProtocol {
             modelManager.beginActiveUse()
             defer { modelManager.endActiveUse() }
             let model = try await modelManager.loadModel()
+            await MainActor.run {
+                self.isModelInitializing = false
+            }
             let audioSamples = try prepareInputSamples(rawSamples, sampleRate: sampleRate)
             let parameters = generationParameters(for: stage)
             let (streamedText, finalOutput) = try await runStreamingInference(
@@ -291,6 +296,9 @@ class MLXTranscriber: ObservableObject, TranscriberProtocol {
             applyCandidate(candidate, stage: stage)
             return candidate
         } catch {
+            await MainActor.run {
+                self.isModelInitializing = false
+            }
             VoxtLog.error("MLXTranscriber \(stageLabel(for: stage)) pass failed: \(error)")
             return nil
         }
@@ -300,6 +308,7 @@ class MLXTranscriber: ObservableObject, TranscriberProtocol {
         sampleStore.clear()
         transcribedText = ""
         audioLevel = 0
+        isModelInitializing = false
         stableCommittedText = ""
         lastCandidateText = ""
         nextCorrectionAtSeconds = correctionIntervalSeconds

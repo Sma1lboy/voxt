@@ -13,9 +13,9 @@ struct BufferedMeetingChunk {
 actor MeetingChunkAccumulator {
     private let speaker: MeetingSpeaker
     private let speechThreshold: Float
-    private let silenceFlushSeconds: TimeInterval = 0.7
-    private let minSpeechSeconds: TimeInterval = 0.6
-    private let maxChunkSeconds: TimeInterval = 6.0
+    private let silenceFlushSeconds: TimeInterval = 0.45
+    private let minSpeechSeconds: TimeInterval = 0.35
+    private let maxChunkSeconds: TimeInterval = 2.6
 
     private var totalSamples: Int = 0
     private var currentSamples: [Float] = []

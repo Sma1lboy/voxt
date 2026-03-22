@@ -149,7 +149,7 @@ final class MeetingOverlayWindow: NSPanel {
 
     private func panelSize(for state: MeetingOverlayState) -> CGSize {
         if state.isCollapsed {
-            return CGSize(width: 420, height: 72)
+            return CGSize(width: 372, height: 72)
         }
         return CGSize(width: 560, height: 420)
     }

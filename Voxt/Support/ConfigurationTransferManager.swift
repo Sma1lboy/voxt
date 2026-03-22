@@ -253,6 +253,7 @@ enum ConfigurationTransferManager {
         var whisperVADEnabled: Bool
         var whisperTimestampsEnabled: Bool
         var whisperRealtimeEnabled: Bool
+        var whisperKeepResidentLoaded: Bool
         var customLLMModelRepo: String
         var translationCustomLLMModelRepo: String
         var rewriteCustomLLMModelRepo: String
@@ -280,6 +281,7 @@ enum ConfigurationTransferManager {
             case whisperVADEnabled
             case whisperTimestampsEnabled
             case whisperRealtimeEnabled
+            case whisperKeepResidentLoaded
             case customLLMModelRepo
             case translationCustomLLMModelRepo
             case rewriteCustomLLMModelRepo
@@ -308,6 +310,7 @@ enum ConfigurationTransferManager {
             whisperVADEnabled: Bool,
             whisperTimestampsEnabled: Bool,
             whisperRealtimeEnabled: Bool,
+            whisperKeepResidentLoaded: Bool,
             customLLMModelRepo: String,
             translationCustomLLMModelRepo: String,
             rewriteCustomLLMModelRepo: String,
@@ -334,6 +337,7 @@ enum ConfigurationTransferManager {
             self.whisperVADEnabled = whisperVADEnabled
             self.whisperTimestampsEnabled = whisperTimestampsEnabled
             self.whisperRealtimeEnabled = whisperRealtimeEnabled
+            self.whisperKeepResidentLoaded = whisperKeepResidentLoaded
             self.customLLMModelRepo = customLLMModelRepo
             self.translationCustomLLMModelRepo = translationCustomLLMModelRepo
             self.rewriteCustomLLMModelRepo = rewriteCustomLLMModelRepo
@@ -363,6 +367,7 @@ enum ConfigurationTransferManager {
             whisperVADEnabled = try container.decodeIfPresent(Bool.self, forKey: .whisperVADEnabled) ?? true
             whisperTimestampsEnabled = try container.decodeIfPresent(Bool.self, forKey: .whisperTimestampsEnabled) ?? false
             whisperRealtimeEnabled = try container.decodeIfPresent(Bool.self, forKey: .whisperRealtimeEnabled) ?? true
+            whisperKeepResidentLoaded = try container.decodeIfPresent(Bool.self, forKey: .whisperKeepResidentLoaded) ?? true
             customLLMModelRepo = try container.decode(String.self, forKey: .customLLMModelRepo)
             translationCustomLLMModelRepo = try container.decode(String.self, forKey: .translationCustomLLMModelRepo)
             rewriteCustomLLMModelRepo = try container.decode(String.self, forKey: .rewriteCustomLLMModelRepo)
@@ -796,7 +801,7 @@ enum ConfigurationTransferManager {
         )
 
         return ExportPayload(
-            version: 12,
+            version: 13,
             exportedAt: ISO8601DateFormatter().string(from: Date()),
             general: general,
             model: .init(
@@ -812,6 +817,7 @@ enum ConfigurationTransferManager {
                 whisperVADEnabled: defaults.object(forKey: AppPreferenceKey.whisperVADEnabled) as? Bool ?? true,
                 whisperTimestampsEnabled: defaults.object(forKey: AppPreferenceKey.whisperTimestampsEnabled) as? Bool ?? false,
                 whisperRealtimeEnabled: defaults.object(forKey: AppPreferenceKey.whisperRealtimeEnabled) as? Bool ?? true,
+                whisperKeepResidentLoaded: defaults.object(forKey: AppPreferenceKey.whisperKeepResidentLoaded) as? Bool ?? true,
                 customLLMModelRepo: defaults.string(forKey: AppPreferenceKey.customLLMModelRepo) ?? CustomLLMModelManager.defaultModelRepo,
                 translationCustomLLMModelRepo: defaults.string(forKey: AppPreferenceKey.translationCustomLLMModelRepo) ?? CustomLLMModelManager.defaultModelRepo,
                 rewriteCustomLLMModelRepo: defaults.string(forKey: AppPreferenceKey.rewriteCustomLLMModelRepo) ?? CustomLLMModelManager.defaultModelRepo,
@@ -925,6 +931,7 @@ enum ConfigurationTransferManager {
         defaults.set(model.whisperVADEnabled, forKey: AppPreferenceKey.whisperVADEnabled)
         defaults.set(model.whisperTimestampsEnabled, forKey: AppPreferenceKey.whisperTimestampsEnabled)
         defaults.set(model.whisperRealtimeEnabled, forKey: AppPreferenceKey.whisperRealtimeEnabled)
+        defaults.set(model.whisperKeepResidentLoaded, forKey: AppPreferenceKey.whisperKeepResidentLoaded)
         defaults.set(model.customLLMModelRepo, forKey: AppPreferenceKey.customLLMModelRepo)
         defaults.set(model.translationCustomLLMModelRepo, forKey: AppPreferenceKey.translationCustomLLMModelRepo)
         defaults.set(model.rewriteCustomLLMModelRepo, forKey: AppPreferenceKey.rewriteCustomLLMModelRepo)
