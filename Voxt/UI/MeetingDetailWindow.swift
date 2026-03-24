@@ -342,11 +342,11 @@ private struct MeetingDetailWindowView: View {
     }
 
     private var windowShell: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(Color(nsColor: .windowBackgroundColor))
+        RoundedRectangle(cornerRadius: MeetingDetailUIStyle.windowCornerRadius, style: .continuous)
+            .fill(MeetingDetailUIStyle.windowFillColor)
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
+                RoundedRectangle(cornerRadius: MeetingDetailUIStyle.windowCornerRadius, style: .continuous)
+                    .strokeBorder(MeetingDetailUIStyle.borderColor, lineWidth: 1)
             )
     }
 
@@ -391,7 +391,7 @@ private struct MeetingDetailWindowView: View {
                 .disabled(!viewModel.canExport)
 
                 Rectangle()
-                    .fill(Color.black.opacity(0.08))
+                    .fill(MeetingDetailUIStyle.dividerColor)
                     .frame(width: 1, height: 18)
 
                 Button(
@@ -446,11 +446,11 @@ private struct MeetingDetailWindowView: View {
         .fixedSize(horizontal: true, vertical: false)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(MeetingDetailUIStyle.controlFillColor)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                .stroke(MeetingDetailUIStyle.borderColor, lineWidth: 1)
         }
     }
 
@@ -485,11 +485,7 @@ private struct MeetingDetailWindowView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(panelBackground(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-        )
+        .meetingDetailPanelSurface(cornerRadius: 12)
     }
 
     private var transcriptPane: some View {
@@ -518,11 +514,7 @@ private struct MeetingDetailWindowView: View {
                 }
                 .padding(16)
             }
-            .background(panelBackground(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-            )
+            .meetingDetailPanelSurface(cornerRadius: 16)
             .onChange(of: playbackController.currentTime) { _, newValue in
                 guard viewModel.mode == .history else { return }
                 updateActiveSegment(for: newValue)
@@ -613,7 +605,7 @@ private struct MeetingDetailWindowView: View {
                                 .padding(.vertical, 3)
                                 .background(
                                     Capsule(style: .continuous)
-                                        .fill(Color.black.opacity(0.05))
+                                        .fill(MeetingDetailUIStyle.mutedFillColor)
                                 )
                         }
 
@@ -656,11 +648,11 @@ private struct MeetingDetailWindowView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.7))
+                .fill(MeetingDetailUIStyle.controlFillColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.05), lineWidth: 1)
+                .strokeBorder(MeetingDetailUIStyle.softBorderColor, lineWidth: 1)
         )
     }
 
@@ -715,11 +707,7 @@ private struct MeetingDetailWindowView: View {
             }
         }
         .padding(16)
-        .background(panelBackground(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-        )
+        .meetingDetailPanelSurface(cornerRadius: 16)
     }
 
     private var rightSidebar: some View {
@@ -762,7 +750,7 @@ private struct MeetingDetailWindowView: View {
                                     .fill(
                                         viewModel.translationDraftLanguageRaw == language.rawValue
                                             ? Color.accentColor.opacity(0.14)
-                                            : Color.primary.opacity(0.04)
+                                            : MeetingDetailUIStyle.mutedFillColor
                                     )
                             )
                             .overlay(
@@ -770,7 +758,7 @@ private struct MeetingDetailWindowView: View {
                                     .strokeBorder(
                                         viewModel.translationDraftLanguageRaw == language.rawValue
                                             ? Color.accentColor.opacity(0.28)
-                                            : Color.primary.opacity(0.08),
+                                            : MeetingDetailUIStyle.borderColor,
                                         lineWidth: 1
                                     )
                             )
@@ -800,11 +788,11 @@ private struct MeetingDetailWindowView: View {
         .frame(width: 300)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
+                .fill(MeetingDetailUIStyle.windowFillColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                .strokeBorder(MeetingDetailUIStyle.borderColor, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.16), radius: 18, y: 10)
     }
@@ -841,10 +829,6 @@ private struct MeetingDetailWindowView: View {
         activeSegmentID = newActiveSegment?.id
     }
 
-    private func panelBackground(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color(nsColor: .windowBackgroundColor).opacity(0.74))
-    }
 }
 
 private struct MeetingDetailSegmentRow: View {
@@ -903,7 +887,7 @@ private struct MeetingDetailSegmentRow: View {
         if isSearchMatch {
             return Color.orange.opacity(0.12)
         }
-        return Color.black.opacity(0.03)
+        return MeetingDetailUIStyle.mutedFillColor
     }
 
     private var borderColor: Color {
@@ -913,80 +897,6 @@ private struct MeetingDetailSegmentRow: View {
         if isSearchMatch {
             return Color.orange.opacity(0.28)
         }
-        return Color.black.opacity(0.05)
-    }
-}
-
-struct MeetingToolbarButtonStyle: ButtonStyle {
-    var isActive = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(isActive ? Color.white : Color.primary)
-            .padding(.horizontal, 12)
-            .frame(height: 32)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(
-                        isActive
-                            ? Color.accentColor.opacity(configuration.isPressed ? 0.84 : 1)
-                            : Color.clear
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(
-                        isActive
-                            ? Color.accentColor.opacity(0.4)
-                            : Color.black.opacity(0.08),
-                        lineWidth: 1
-                    )
-            )
-            .opacity(configuration.isPressed ? 0.88 : 1)
-    }
-}
-
-struct MeetingPillButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.primary.opacity(configuration.isPressed ? 0.72 : 0.92))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.black.opacity(configuration.isPressed ? 0.08 : 0.05))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-            )
-    }
-}
-
-struct MeetingPrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white.opacity(configuration.isPressed ? 0.82 : 0.96))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.black.opacity(configuration.isPressed ? 0.86 : 0.92))
-            )
-    }
-}
-
-struct MeetingPrimaryIconButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .frame(width: 34, height: 34)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.black.opacity(configuration.isPressed ? 0.86 : 0.92))
-            )
-            .opacity(configuration.isPressed ? 0.92 : 1)
+        return MeetingDetailUIStyle.softBorderColor
     }
 }

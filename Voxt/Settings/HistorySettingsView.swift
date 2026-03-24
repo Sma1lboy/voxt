@@ -89,14 +89,14 @@ struct HistorySettingsView: View {
                                             .frame(width: 280, alignment: .leading)
                                     }
                                 }
-                                Picker("Retention", selection: $historyRetentionPeriodRaw) {
-                                    ForEach(HistoryRetentionPeriod.allCases) { option in
-                                        Text(option.title).tag(option.rawValue)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                                .fixedSize(horizontal: true, vertical: false)
+                                SettingsMenuPicker(
+                                    selection: $historyRetentionPeriodRaw,
+                                    options: HistoryRetentionPeriod.allCases.map { option in
+                                        SettingsMenuOption(value: option.rawValue, title: option.title)
+                                    },
+                                    selectedTitle: historyRetentionPeriod.title,
+                                    width: 160
+                                )
                                 .disabled(!historyEnabled)
                             }
 
@@ -118,7 +118,7 @@ struct HistorySettingsView: View {
                                     copiedEntryID = nil
                                     historyStore.clearAll()
                                 }
-                                .controlSize(.small)
+                                .buttonStyle(SettingsPillButtonStyle())
                                 .disabled(historyStore.entries.isEmpty)
                             }
 
@@ -167,7 +167,7 @@ struct HistorySettingsView: View {
                                             Button("Load More") {
                                                 historyStore.loadNextPage()
                                             }
-                                            .controlSize(.small)
+                                            .buttonStyle(SettingsPillButtonStyle())
                                             .padding(.top, 4)
                                         }
                                     }
@@ -243,32 +243,14 @@ private struct HistoryFilterTabPicker: View {
                     selectedTab = tab
                 } label: {
                     Text(tab.title)
-                        .font(.system(size: 11.5, weight: .semibold))
                         .padding(.horizontal, 8)
-                        .frame(height: 22)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(selectedTab == tab ? Color.accentColor.opacity(0.14) : .clear)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(selectedTab == tab ? Color.accentColor.opacity(0.45) : .clear, lineWidth: 1)
-                }
+                .buttonStyle(SettingsSegmentedButtonStyle(isSelected: selectedTab == tab))
             }
         }
         .padding(2)
         .fixedSize(horizontal: true, vertical: false)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-        }
+        .settingsCardSurface(cornerRadius: SettingsUIStyle.compactCornerRadius, fillOpacity: 1)
     }
 }
 
@@ -383,7 +365,7 @@ private struct HistoryRow: View {
                                 }
                             )
                         }
-                        .controlSize(.small)
+                        .buttonStyle(SettingsPillButtonStyle())
                     }
 
                     Button(role: .destructive, action: onDelete) {

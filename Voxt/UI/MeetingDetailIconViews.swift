@@ -9,8 +9,24 @@ struct MeetingDetailFollowUpSendButton: View {
             MeetingDetailFollowUpSendIcon()
                 .frame(width: 18, height: 18)
         }
-        .buttonStyle(MeetingPrimaryIconButtonStyle())
+        .buttonStyle(MeetingAccentIconButtonStyle())
         .disabled(isDisabled)
+    }
+}
+
+private struct MeetingAccentIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 34, height: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.accentColor.opacity(configuration.isPressed ? 0.82 : 0.96))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 1)
+            )
+            .opacity(configuration.isPressed ? 0.94 : 1)
     }
 }
 

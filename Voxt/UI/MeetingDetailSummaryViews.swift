@@ -79,7 +79,7 @@ struct MeetingDetailSummarySidebar: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.secondary)
 
-                            ForEach(summaryParagraphs(summary.body), id: \.self) { paragraph in
+                            ForEach(MeetingDetailFormatting.summaryParagraphs(summary.body), id: \.self) { paragraph in
                                 Text(paragraph)
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundStyle(.primary.opacity(0.92))
@@ -102,7 +102,7 @@ struct MeetingDetailSummarySidebar: View {
                                         .frame(width: 18, height: 18)
                                         .background(
                                             Circle()
-                                                .fill(Color.black.opacity(0.06))
+                                                .fill(MeetingDetailUIStyle.mutedFillColor)
                                         )
 
                                     Text(item)
@@ -150,11 +150,7 @@ struct MeetingDetailSummarySidebar: View {
             }
             .padding(16)
         }
-        .background(panelBackground(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-        )
+        .meetingDetailPanelSurface(cornerRadius: 14)
     }
 
     @ViewBuilder
@@ -254,11 +250,11 @@ struct MeetingDetailSummarySidebar: View {
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color(nsColor: .windowBackgroundColor).opacity(0.92))
+                            .fill(MeetingDetailUIStyle.controlFillColor)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
+                            .strokeBorder(MeetingDetailUIStyle.borderColor, lineWidth: 1)
                     )
                     .disabled(viewModel.mode != .history || viewModel.summary == nil || !viewModel.hasSummaryModelOptions || viewModel.segments.isEmpty || viewModel.isSummaryChatLoading)
                     .onSubmit {
@@ -273,23 +269,7 @@ struct MeetingDetailSummarySidebar: View {
 
         }
         .padding(14)
-        .background(panelBackground(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-        )
-    }
-
-    private func summaryParagraphs(_ body: String) -> [String] {
-        body
-            .components(separatedBy: "\n\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-
-    private func panelBackground(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color(nsColor: .windowBackgroundColor).opacity(0.74))
+        .meetingDetailPanelSurface(cornerRadius: 14)
     }
 }
 
@@ -375,11 +355,7 @@ struct MeetingDetailSummarySettingsDialog: View {
                 .scrollContentBackground(.hidden)
                 .padding(10)
                 .frame(minHeight: 140)
-                .background(panelBackground(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
-                )
+                .meetingDetailPanelSurface(cornerRadius: 12)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(String(localized: "Available variables: {{USER_MAIN_LANGUAGE}}, {{MEETING_RECORD}}"))
@@ -413,13 +389,12 @@ struct MeetingDetailSummarySettingsDialog: View {
         .frame(maxHeight: 620)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor))
+                .fill(MeetingDetailUIStyle.windowFillColor)
         )
-    }
-
-    private func panelBackground(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color(nsColor: .windowBackgroundColor).opacity(0.74))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(MeetingDetailUIStyle.borderColor, lineWidth: 1)
+        )
     }
 }
 
@@ -440,12 +415,12 @@ struct SummaryChatMessageRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(message.role == .user ? Color.accentColor.opacity(0.08) : Color.black.opacity(0.035))
+                .fill(message.role == .user ? Color.accentColor.opacity(0.08) : MeetingDetailUIStyle.mutedFillColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(
-                    message.role == .user ? Color.accentColor.opacity(0.18) : Color.black.opacity(0.05),
+                    message.role == .user ? Color.accentColor.opacity(0.18) : MeetingDetailUIStyle.softBorderColor,
                     lineWidth: 1
                 )
         )
