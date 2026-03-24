@@ -176,13 +176,13 @@ struct GeneralTranscriptionUICard: View {
             if meetingNotesBetaEnabled {
                 Toggle(isOn: $hideMeetingOverlayFromScreenSharing) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Hide Meeting Notes from Screen Sharing")
-                        Text("When enabled, the meeting transcript overlay uses a private window sharing mode and will not appear in screen sharing or screen recordings.")
+                        Text("Meeting Transcript UI Shareable")
+                        Text("Leave this off to keep the meeting transcript overlay private. Turn it on if you want the UI to appear in screen sharing or screen recordings.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .toggleStyle(.switch)
+                .toggleStyle(.checkbox)
             }
         }
     }

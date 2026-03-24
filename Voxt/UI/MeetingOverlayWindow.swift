@@ -179,9 +179,9 @@ final class MeetingOverlayWindow: NSPanel {
     }
 
     private func applyScreenSharingPreference() {
-        let hideFromScreenSharing = UserDefaults.standard.bool(
+        let shareableInScreenSharing = UserDefaults.standard.bool(
             forKey: AppPreferenceKey.hideMeetingOverlayFromScreenSharing
         )
-        sharingType = hideFromScreenSharing ? .none : .readOnly
+        sharingType = shareableInScreenSharing ? .readOnly : .none
     }
 }
