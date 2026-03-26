@@ -6,6 +6,12 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-03-26
+
+### Fixed
+- Fixed the local Whisper transcription dependency so Voxt builds reliably with the current Xcode toolchain.
+- Fixed custom select controls in Settings so choosing a different option updates immediately again.
+
 ## [1.8.1] - 2026-03-25
 
 ### Changed
