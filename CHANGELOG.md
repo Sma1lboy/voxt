@@ -6,6 +6,14 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-03-27
+
+### Fixed
+- Fixed permission warnings so Settings only asks for permissions that are actually required by enabled features.
+- Fixed App Branch matching so groups with an empty prompt no longer override the default enhancement flow.
+- Fixed rewrite output handling so the answer card stays available more reliably when that mode is enabled.
+- Improved meeting detail timing and summary defaults for clearer post-meeting review.
+
 ## [1.8.2] - 2026-03-26
 
 ### Fixed
