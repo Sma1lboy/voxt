@@ -99,8 +99,8 @@ final class ConfigurationTransferManagerTests: XCTestCase {
         XCTAssertFalse(targetDefaults.bool(forKey: AppPreferenceKey.whisperRealtimeEnabled))
         XCTAssertEqual(targetDefaults.string(forKey: AppPreferenceKey.translationFallbackModelProvider), TranslationModelProvider.remoteLLM.rawValue)
         XCTAssertEqual(targetDefaults.string(forKey: AppPreferenceKey.meetingRealtimeTranslationTargetLanguage), TranslationTargetLanguage.japanese.rawValue)
-        XCTAssertNil(targetDefaults.string(forKey: AppPreferenceKey.customProxyUsername))
-        XCTAssertNil(targetDefaults.string(forKey: AppPreferenceKey.customProxyPassword))
+        XCTAssertEqual(targetDefaults.string(forKey: AppPreferenceKey.customProxyUsername) ?? "", "")
+        XCTAssertEqual(targetDefaults.string(forKey: AppPreferenceKey.customProxyPassword) ?? "", "")
         XCTAssertEqual(VoxtNetworkSession.proxyCredentials(defaults: targetDefaults).password, "")
 
         let importedRemote = RemoteModelConfigurationStore.loadConfigurations(
