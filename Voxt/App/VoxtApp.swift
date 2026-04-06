@@ -384,6 +384,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             AppPreferenceKey.userMainLanguageCodes: UserMainLanguageOption.defaultStoredSelectionValue,
             AppPreferenceKey.translationModelProvider: TranslationModelProvider.customLLM.rawValue,
             AppPreferenceKey.rewriteModelProvider: RewriteModelProvider.customLLM.rawValue,
+            AppPreferenceKey.translationHotkeyEnabled: true,
+            AppPreferenceKey.rewriteHotkeyEnabled: true,
             AppPreferenceKey.escapeKeyCancelsOverlaySession: true,
             AppPreferenceKey.translateSelectedTextOnTranslationHotkey: true,
             AppPreferenceKey.meetingNotesBetaEnabled: false,
@@ -968,6 +970,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleTranslationHotkeyDown() {
+        guard UserDefaults.standard.bool(forKey: AppPreferenceKey.translationHotkeyEnabled) else {
+            VoxtLog.hotkey("Translation hotkey ignored: feature is disabled.")
+            return
+        }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         VoxtLog.hotkey(
             "Hotkey callback translationDown. mode=\(triggerMode.rawValue), isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(pendingTranscriptionStartTask != nil)",
@@ -1012,6 +1018,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleTranslationHotkeyUp() {
+        guard UserDefaults.standard.bool(forKey: AppPreferenceKey.translationHotkeyEnabled) else { return }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         guard triggerMode == .longPress else { return }
         VoxtLog.hotkey(
@@ -1033,6 +1040,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleRewriteHotkeyDown() {
+        guard UserDefaults.standard.bool(forKey: AppPreferenceKey.rewriteHotkeyEnabled) else {
+            VoxtLog.hotkey("Rewrite hotkey ignored: feature is disabled.")
+            return
+        }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         VoxtLog.hotkey(
             "Hotkey callback rewriteDown. mode=\(triggerMode.rawValue), isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputModeLabel), pendingStart=\(pendingTranscriptionStartTask != nil)",
@@ -1055,6 +1066,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleRewriteHotkeyUp() {
+        guard UserDefaults.standard.bool(forKey: AppPreferenceKey.rewriteHotkeyEnabled) else { return }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         guard triggerMode == .longPress else { return }
         VoxtLog.hotkey(

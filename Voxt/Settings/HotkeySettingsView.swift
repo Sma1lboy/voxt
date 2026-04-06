@@ -40,6 +40,8 @@ struct HotkeySettingsView: View {
     @AppStorage(AppPreferenceKey.meetingHotkeyKeyCode) private var meetingHotkeyKeyCode = Int(HotkeyPreference.defaultMeetingKeyCode)
     @AppStorage(AppPreferenceKey.meetingHotkeyModifiers) private var meetingHotkeyModifiers = Int(HotkeyPreference.defaultMeetingModifiers.rawValue)
     @AppStorage(AppPreferenceKey.meetingHotkeySidedModifiers) private var meetingHotkeySidedModifiers = 0
+    @AppStorage(AppPreferenceKey.translationHotkeyEnabled) private var translationHotkeyEnabled = true
+    @AppStorage(AppPreferenceKey.rewriteHotkeyEnabled) private var rewriteHotkeyEnabled = true
     @AppStorage(AppPreferenceKey.meetingNotesBetaEnabled) private var meetingNotesBetaEnabled = false
     @AppStorage(AppPreferenceKey.hotkeyTriggerMode) private var hotkeyTriggerMode = HotkeyPreference.defaultTriggerMode.rawValue
     @AppStorage(AppPreferenceKey.hotkeyDistinguishModifierSides) private var distinguishModifierSides = HotkeyPreference.defaultDistinguishModifierSides
@@ -280,6 +282,7 @@ struct HotkeySettingsView: View {
 
                     shortcutInput(
                         titleKey: "Translation",
+                        isEnabled: $translationHotkeyEnabled,
                         hotkey: displayedHotkey(for: .translation, current: currentTranslationHotkey),
                         isRecording: recordingField == .translation,
                         isPendingConfirmation: isPendingConfirmation(for: .translation),
@@ -296,6 +299,7 @@ struct HotkeySettingsView: View {
 
                     shortcutInput(
                         titleKey: "Content Rewrite",
+                        isEnabled: $rewriteHotkeyEnabled,
                         hotkey: displayedHotkey(for: .rewrite, current: currentRewriteHotkey),
                         isRecording: recordingField == .rewrite,
                         isPendingConfirmation: isPendingConfirmation(for: .rewrite),
@@ -350,13 +354,13 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if let conflict = hotkeyConflictMessage(for: currentTranslationHotkey) {
+                    if translationHotkeyEnabled, let conflict = hotkeyConflictMessage(for: currentTranslationHotkey) {
                         Text(localizedString("Translation shortcut: %@", conflict))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if let conflict = hotkeyConflictMessage(for: currentRewriteHotkey) {
+                    if rewriteHotkeyEnabled, let conflict = hotkeyConflictMessage(for: currentRewriteHotkey) {
                         Text(localizedString("Content rewrite shortcut: %@", conflict))
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -369,19 +373,19 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if currentHotkey == currentTranslationHotkey {
+                    if translationHotkeyEnabled, currentHotkey == currentTranslationHotkey {
                         Text("Transcription and translation shortcuts should be different.")
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if currentHotkey == currentRewriteHotkey {
+                    if rewriteHotkeyEnabled, currentHotkey == currentRewriteHotkey {
                         Text("Transcription and content rewrite shortcuts should be different.")
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if currentTranslationHotkey == currentRewriteHotkey {
+                    if translationHotkeyEnabled, rewriteHotkeyEnabled, currentTranslationHotkey == currentRewriteHotkey {
                         Text("Translation and content rewrite shortcuts should be different.")
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -393,13 +397,13 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if meetingNotesBetaEnabled, currentTranslationHotkey == currentMeetingHotkey {
+                    if meetingNotesBetaEnabled, translationHotkeyEnabled, currentTranslationHotkey == currentMeetingHotkey {
                         Text("Translation and meeting notes shortcuts should be different.")
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if meetingNotesBetaEnabled, currentRewriteHotkey == currentMeetingHotkey {
+                    if meetingNotesBetaEnabled, rewriteHotkeyEnabled, currentRewriteHotkey == currentMeetingHotkey {
                         Text("Content rewrite and meeting notes shortcuts should be different.")
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -541,6 +545,7 @@ struct HotkeySettingsView: View {
     @ViewBuilder
     private func shortcutInput(
         titleKey: LocalizedStringKey,
+        isEnabled: Binding<Bool>? = nil,
         hotkey: HotkeyPreference.Hotkey,
         isRecording: Bool,
         isPendingConfirmation: Bool,
@@ -549,77 +554,101 @@ struct HotkeySettingsView: View {
         onCancelPending: @escaping () -> Void,
         onConfirmPending: @escaping () -> Void
     ) -> some View {
+        let hasToggle = isEnabled != nil
+        let enabled = isEnabled?.wrappedValue ?? true
+
         HStack(alignment: .center, spacing: 12) {
-            Text(titleKey)
-                .font(.body)
-                .foregroundStyle(.secondary)
+            if let isEnabled {
+                HStack(spacing: 6) {
+                    Toggle("", isOn: isEnabled)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                    Text(titleKey)
+                        .font(.body)
+                        .foregroundStyle(enabled ? .secondary : .tertiary)
+                }
+            } else {
+                Text(titleKey)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
             Spacer()
 
-            HStack(spacing: 8) {
-                Text(isRecording && !isPendingConfirmation ? String(localized: "Listening...") : HotkeyPreference.displayString(for: hotkey, distinguishModifierSides: distinguishModifierSides))
-                    .font(.system(.body, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .minimumScaleFactor(0.9)
-                    .layoutPriority(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if isPendingConfirmation {
-                    Button("Cancel", action: onCancelPending)
+            if enabled {
+                HStack(spacing: 8) {
+                    Text(isRecording && !isPendingConfirmation ? String(localized: "Listening...") : HotkeyPreference.displayString(for: hotkey, distinguishModifierSides: distinguishModifierSides))
+                        .font(.system(.body, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .minimumScaleFactor(0.9)
+                        .layoutPriority(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if isPendingConfirmation {
+                        Button("Cancel", action: onCancelPending)
+                            .buttonStyle(.plain)
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .frame(height: 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(Color(nsColor: .controlAccentColor).opacity(0.12))
+                            )
+                        Button("Confirm", action: onConfirmPending)
+                            .buttonStyle(.plain)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .frame(height: 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(Color.accentColor.opacity(0.18))
+                            )
+                    } else if isRecording {
+                        Button("Cancel", action: onCancelPending)
+                            .buttonStyle(.plain)
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .frame(height: 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(Color(nsColor: .controlAccentColor).opacity(0.12))
+                            )
+                    } else {
+                        Button(action: onReset) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .foregroundStyle(.secondary)
+                        }
                         .buttonStyle(.plain)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .frame(height: 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color(nsColor: .controlAccentColor).opacity(0.12))
-                        )
-                    Button("Confirm", action: onConfirmPending)
-                        .buttonStyle(.plain)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .frame(height: 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color.accentColor.opacity(0.18))
-                        )
-                } else if isRecording {
-                    Button("Cancel", action: onCancelPending)
-                        .buttonStyle(.plain)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .frame(height: 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color(nsColor: .controlAccentColor).opacity(0.12))
-                        )
-                } else {
-                    Button(action: onReset) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .foregroundStyle(.secondary)
+                        .help(Text("Reset shortcut"))
                     }
-                    .buttonStyle(.plain)
-                    .help(Text("Reset shortcut"))
                 }
+                .frame(height: 16)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(SettingsUIStyle.controlFillColor)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(SettingsUIStyle.subtleBorderColor, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onFocus)
+                .frame(width: hasToggle ? 280 : 320, alignment: .trailing)
+            } else {
+                Text("Disabled")
+                    .font(.system(.body, design: .rounded))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 280, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
             }
-            .frame(height: 16)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(SettingsUIStyle.controlFillColor)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(SettingsUIStyle.subtleBorderColor, lineWidth: 1)
-            )
-            .contentShape(Rectangle())
-            .onTapGesture(perform: onFocus)
-            .frame(width: 320, alignment: .trailing)
         }
     }
 
