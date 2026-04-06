@@ -1,6 +1,7 @@
 import XCTest
 @testable import Voxt
 
+@MainActor
 final class MLXModelManagerTests: XCTestCase {
     func testCanonicalModelRepoMapsLegacyReposToCurrentIdentifiers() {
         XCTAssertEqual(
