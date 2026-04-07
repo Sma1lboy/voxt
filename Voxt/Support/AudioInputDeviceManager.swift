@@ -208,7 +208,7 @@ final class AudioInputDeviceObserver {
                 AudioInputDeviceManager.selectorDescription($0.mSelector)
             }
             let selectors = selectorValues.isEmpty ? "unknown" : selectorValues.joined(separator: ",")
-            VoxtLog.info("Audio input device observer fired. selectors=\(selectors)")
+            VoxtLog.info("Audio input device observer fired. selectors=\(selectors)", verbose: true)
             onChange()
         }
 

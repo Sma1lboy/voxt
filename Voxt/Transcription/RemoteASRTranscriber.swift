@@ -31,6 +31,8 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     @Published var isRequesting = false
 
     var onTranscriptionFinished: ((String) -> Void)?
+    var onStartFailure: ((String) -> Void)?
+    var onRuntimeFailure: ((String) -> Void)?
 
     private var recorder: AVAudioRecorder?
     private let audioEngine = AVAudioEngine()
@@ -47,6 +49,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     private var activeProvider: RemoteASRProvider?
     private var preferredInputDeviceID: AudioDeviceID?
     private let streamingFinalWaitTimeout: TimeInterval = 20
+    private var lastPresentedRuntimeErrorMessage = ""
 
     func setPreferredInputDevice(_ deviceID: AudioDeviceID?) {
         preferredInputDeviceID = deviceID
@@ -65,6 +68,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         audioLevel = 0
         isRequesting = false
         stopRequested = false
+        lastPresentedRuntimeErrorMessage = ""
         let provider = selectedProvider
         let configuration = selectedProviderConfiguration(for: provider)
         let hintPayload = resolvedHintPayload(for: provider, configuration: configuration)
@@ -78,6 +82,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 cleanupRecorderState()
                 cleanupDoubaoStreamingState()
                 activeProvider = nil
+                notifyStartFailure(error)
             }
             return
         }
@@ -94,6 +99,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 cleanupRecorderState()
                 cleanupAliyunStreamingState()
                 activeProvider = nil
+                notifyStartFailure(error)
             }
             return
         }
@@ -107,6 +113,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             VoxtLog.error("Remote ASR recorder setup failed: \(error.localizedDescription)")
             cleanupRecorderState()
             activeProvider = nil
+            notifyStartFailure(error)
         }
     }
 
@@ -182,6 +189,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             } catch {
                 await MainActor.run {
                     VoxtLog.error("Remote ASR transcription failed: \(error.localizedDescription)")
+                    self.notifyRuntimeFailure(error)
                     self.finish(with: self.transcribedText)
                 }
             }
@@ -308,6 +316,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             return try await waitForFinal()
         } catch {
             VoxtLog.warning("\(warningMessage): \(error.localizedDescription)")
+            notifyRuntimeFailure(error)
             return await fallback()
         }
     }
@@ -744,7 +753,11 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         ws.resume()
 
         let taskID = UUID().uuidString.lowercased()
-        let responseState = AliyunFunResponseState()
+        let responseState = AliyunFunResponseState { [weak self] error in
+            Task { @MainActor [weak self] in
+                self?.notifyRuntimeFailure(error)
+            }
+        }
         let context = AliyunFunStreamingContext(
             session: managedSocket.session,
             ws: ws,
@@ -954,7 +967,11 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         let ws = managedSocket.task
         ws.resume()
 
-        let responseState = AliyunQwenResponseState()
+        let responseState = AliyunQwenResponseState { [weak self] error in
+            Task { @MainActor [weak self] in
+                self?.notifyRuntimeFailure(error)
+            }
+        }
         let context = AliyunQwenStreamingContext(
             session: managedSocket.session,
             ws: ws,
@@ -1187,7 +1204,11 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 audioFormat: DoubaoASRConfiguration.requestAudioFormat
             )
 
-        let responseState = DoubaoResponseState()
+        let responseState = DoubaoResponseState { [weak self] error in
+            Task { @MainActor [weak self] in
+                self?.notifyRuntimeFailure(error)
+            }
+        }
         let receiveTask = Task {
             do {
                 while !Task.isCancelled {
@@ -1286,7 +1307,11 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         let context = DoubaoStreamingContext(
             session: managedSocket.session,
             ws: ws,
-            responseState: DoubaoResponseState()
+            responseState: DoubaoResponseState { [weak self] error in
+                Task { @MainActor [weak self] in
+                    self?.notifyRuntimeFailure(error)
+                }
+            }
         )
         doubaoStreamingContext = context
         receiveDoubaoMessages(context, endpoint: endpoint, resourceID: resourceID, appID: appID, accessToken: accessToken)
@@ -2649,7 +2674,88 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         cleanupDoubaoStreamingState()
         cleanupAliyunStreamingState()
         activeProvider = nil
+        lastPresentedRuntimeErrorMessage = ""
         onTranscriptionFinished?(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func notifyStartFailure(_ error: Error) {
+        let message = userVisibleRemoteErrorMessage(for: error)
+        guard !message.isEmpty else { return }
+        onStartFailure?(message)
+    }
+
+    private func notifyRuntimeFailure(_ error: Error) {
+        let message = userVisibleRemoteErrorMessage(for: error)
+        guard !message.isEmpty, message != lastPresentedRuntimeErrorMessage else { return }
+        lastPresentedRuntimeErrorMessage = message
+        onRuntimeFailure?(message)
+    }
+
+    private func userVisibleRemoteErrorMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        let description = nsError.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedDescription = description.lowercased()
+        if nsError.domain == NSURLErrorDomain {
+            switch nsError.code {
+            case NSURLErrorNotConnectedToInternet:
+                return AppLocalization.localizedString("Network appears to be offline. Check your connection and try again.")
+            case NSURLErrorTimedOut:
+                return AppLocalization.localizedString("Remote ASR timed out. Please try again.")
+            case NSURLErrorCannotConnectToHost, NSURLErrorNetworkConnectionLost, NSURLErrorCannotFindHost:
+                return AppLocalization.localizedString("Couldn't reach the remote ASR service. Check your network and proxy settings.")
+            default:
+                break
+            }
+        }
+        switch nsError.code {
+        case 401:
+            return AppLocalization.localizedString("Remote ASR authentication failed. Check the provider credentials and try again.")
+        case 402:
+            return AppLocalization.localizedString("Remote ASR billing or quota is unavailable. Check the provider account balance and limits.")
+        case 403:
+            return AppLocalization.localizedString("Remote ASR access was denied. Check the provider permissions, region, or endpoint.")
+        case 408, 504:
+            return AppLocalization.localizedString("Remote ASR timed out. Please try again.")
+        case 409, 429:
+            return AppLocalization.localizedString("Remote ASR is busy or has reached its quota. Please wait a moment and try again.")
+        case 500 ... 599:
+            return AppLocalization.localizedString("Remote ASR is temporarily unavailable. Please try again later.")
+        default:
+            break
+        }
+        if normalizedDescription.contains("exceededconcurrentquota")
+            || normalizedDescription.contains("quota")
+            || normalizedDescription.contains("rate limit")
+            || normalizedDescription.contains("too many requests")
+            || normalizedDescription.contains("concurrent") {
+            return AppLocalization.localizedString("Remote ASR is busy or has reached its quota. Please wait a moment and try again.")
+        }
+        if normalizedDescription.contains("billing")
+            || normalizedDescription.contains("insufficient")
+            || normalizedDescription.contains("balance")
+            || normalizedDescription.contains("arrears")
+            || normalizedDescription.contains("欠费")
+            || normalizedDescription.contains("余额")
+            || normalizedDescription.contains("费用") {
+            return AppLocalization.localizedString("Remote ASR billing or quota is unavailable. Check the provider account balance and limits.")
+        }
+        if normalizedDescription.contains("unauthorized")
+            || normalizedDescription.contains("forbidden")
+            || normalizedDescription.contains("access token")
+            || normalizedDescription.contains("api key")
+            || normalizedDescription.contains("鉴权")
+            || normalizedDescription.contains("权限") {
+            return AppLocalization.localizedString("Remote ASR authentication failed. Check the provider credentials and try again.")
+        }
+        if normalizedDescription.contains("network")
+            || normalizedDescription.contains("socket is not connected")
+            || normalizedDescription.contains("proxy")
+            || normalizedDescription.contains("vpn") {
+            return AppLocalization.localizedString("Couldn't reach the remote ASR service. Check your network and proxy settings.")
+        }
+        return description.isEmpty
+            ? AppLocalization.localizedString("Remote ASR request failed.")
+            : description
     }
 }
 
@@ -2674,6 +2780,11 @@ private actor AliyunQwenResponseState {
     private var finishRequested = false
     private var sessionFinished = false
     private var completionError: Error?
+    private let onError: @Sendable (Error) -> Void
+
+    init(onError: @escaping @Sendable (Error) -> Void = { _ in }) {
+        self.onError = onError
+    }
 
     func markFinishRequested() {
         finishRequested = true
@@ -2686,6 +2797,7 @@ private actor AliyunQwenResponseState {
     func markCompletedWithError(_ error: Error) {
         if completionError == nil {
             completionError = error
+            onError(error)
         }
     }
 
@@ -2755,6 +2867,11 @@ private actor AliyunFunResponseState {
     private var finishRequested = false
     private var taskFinished = false
     private var completionError: Error?
+    private let onError: @Sendable (Error) -> Void
+
+    init(onError: @escaping @Sendable (Error) -> Void = { _ in }) {
+        self.onError = onError
+    }
 
     func markRunRequested() {}
 
@@ -2769,6 +2886,7 @@ private actor AliyunFunResponseState {
     func markCompletedWithError(_ error: Error) {
         if completionError == nil {
             completionError = error
+            onError(error)
         }
     }
 
@@ -2843,6 +2961,11 @@ private actor DoubaoResponseState {
     private var isFinal = false
     private var completionError: Error?
     private var isSocketClosed = false
+    private let onError: @Sendable (Error) -> Void
+
+    init(onError: @escaping @Sendable (Error) -> Void = { _ in }) {
+        self.onError = onError
+    }
 
     func replace(text newText: String, isFinal: Bool) -> String {
         text = newText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2859,6 +2982,7 @@ private actor DoubaoResponseState {
     func markCompletedWithError(_ error: Error) {
         if completionError == nil {
             completionError = error
+            onError(error)
         }
     }
 

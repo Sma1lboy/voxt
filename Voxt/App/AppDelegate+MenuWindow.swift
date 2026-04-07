@@ -137,7 +137,7 @@ extension AppDelegate {
         let addedDevices = devices.filter { !previousUIDs.contains($0.uid) }
         let removedDevices = previousDevices.filter { !currentUIDs.contains($0.uid) }
 
-        if devicesChanged {
+        if !addedDevices.isEmpty || !removedDevices.isEmpty {
             VoxtLog.info(
                 """
                 Audio input hardware change applied. reason=\(reason), previousCount=\(previousDevices.count), currentCount=\(devices.count), added=\(describeDevices(addedDevices)), removed=\(describeDevices(removedDevices))

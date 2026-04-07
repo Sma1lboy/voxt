@@ -1004,3 +1004,12 @@
 "Assistant" = "Assistant";
 "Please enter a follow-up question." = "Please enter a follow-up question.";
 "Meeting summary follow-up is unavailable." = "Meeting summary follow-up is unavailable.";
+"Network appears to be offline. Check your connection and try again." = "Network appears to be offline. Check your connection and try again.";
+"Remote ASR timed out. Please try again." = "Remote ASR timed out. Please try again.";
+"Couldn't reach the remote ASR service. Check your network and proxy settings." = "Couldn't reach the remote ASR service. Check your network and proxy settings.";
+"Remote ASR authentication failed. Check the provider credentials and try again." = "Remote ASR authentication failed. Check the provider credentials and try again.";
+"Remote ASR billing or quota is unavailable. Check the provider account balance and limits." = "Remote ASR billing or quota is unavailable. Check the provider account balance and limits.";
+"Remote ASR access was denied. Check the provider permissions, region, or endpoint." = "Remote ASR access was denied. Check the provider permissions, region, or endpoint.";
+"Remote ASR is busy or has reached its quota. Please wait a moment and try again." = "Remote ASR is busy or has reached its quota. Please wait a moment and try again.";
+"Remote ASR is temporarily unavailable. Please try again later." = "Remote ASR is temporarily unavailable. Please try again later.";
+"Remote ASR request failed." = "Remote ASR request failed.";

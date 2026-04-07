@@ -506,6 +506,15 @@ extension AppDelegate {
             self.remoteASRTranscriber.onTranscriptionFinished = { [weak self] text in
                 self?.processTranscription(text, sessionID: sessionID)
             }
+            self.remoteASRTranscriber.onStartFailure = { [weak self] message in
+                guard let self, self.shouldHandleCallbacks(for: sessionID) else { return }
+                self.showOverlayReminder(message, autoHideAfter: 3.6)
+                self.resetSessionAfterFailedStart()
+            }
+            self.remoteASRTranscriber.onRuntimeFailure = { [weak self] message in
+                guard let self, self.shouldHandleCallbacks(for: sessionID), self.isSessionActive else { return }
+                self.showOverlayStatus(message, clearAfter: 4.8)
+            }
             self.overlayState.bind(to: self.remoteASRTranscriber)
             self.overlayWindow.show(
                 state: self.overlayState,

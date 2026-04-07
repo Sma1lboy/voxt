@@ -46,11 +46,18 @@ enum MicrophonePreferenceManager {
             availableDevices: availableDevices,
             previousAvailableUIDs: previousAvailableUIDs
         )
-        VoxtLog.info(
-            """
-            Microphone sync resolved. current=\(currentActiveUID ?? "none"), resolved=\(activeUID ?? "none"), default=\(defaultUID ?? "none"), autoSwitch=\(autoSwitchEnabled), added=\(formatUIDList(addedUIDs)), removed=\(formatUIDList(removedUIDs)), priority=\(formatUIDList(priorityUIDs)), available=\(formatDevices(availableDevices))
-            """
-        )
+        if shouldLogSyncResolution(
+            currentActiveUID: currentActiveUID,
+            resolvedUID: activeUID,
+            addedUIDs: addedUIDs,
+            removedUIDs: removedUIDs
+        ) {
+            VoxtLog.info(
+                """
+                Microphone sync resolved. current=\(currentActiveUID ?? "none"), resolved=\(activeUID ?? "none"), default=\(defaultUID ?? "none"), autoSwitch=\(autoSwitchEnabled), added=\(formatUIDList(addedUIDs)), removed=\(formatUIDList(removedUIDs)), priority=\(formatUIDList(priorityUIDs)), available=\(formatDevices(availableDevices))
+                """
+            )
+        }
 
         return resolvedState(
             activeDevice: activeDevice,
@@ -276,9 +283,6 @@ enum MicrophonePreferenceManager {
             guard autoSwitchEnabled,
                   let previousAvailableUIDs
             else {
-                VoxtLog.info(
-                    "Microphone auto selection kept current device. current=\(currentActiveUID), autoSwitch=\(autoSwitchEnabled), previousSnapshotKnown=\(previousAvailableUIDs != nil)"
-                )
                 return currentActiveUID
             }
 
@@ -294,9 +298,6 @@ enum MicrophonePreferenceManager {
                 return promotedUID
             }
 
-            VoxtLog.info(
-                "Microphone auto selection kept current device after priority evaluation. current=\(currentActiveUID), currentRank=\(currentRank), newlyAvailable=\(formatUIDList(newlyAvailableUIDs(availableDevices: availableDevices, previousAvailableUIDs: previousAvailableUIDs)))"
-            )
             return currentActiveUID
         }
 
@@ -345,5 +346,14 @@ enum MicrophonePreferenceManager {
         return devices
             .map { "\($0.name){uid=\($0.uid),id=\($0.id)}" }
             .joined(separator: ", ")
+    }
+
+    private static func shouldLogSyncResolution(
+        currentActiveUID: String?,
+        resolvedUID: String?,
+        addedUIDs: [String],
+        removedUIDs: [String]
+    ) -> Bool {
+        currentActiveUID != resolvedUID || !addedUIDs.isEmpty || !removedUIDs.isEmpty
     }
 }

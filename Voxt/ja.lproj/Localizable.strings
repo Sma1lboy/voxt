@@ -921,3 +921,12 @@
 "Automatic scrolling pauses when you scroll away from the bottom." = "下端から離れると自動スクロールは一時停止します。";
 "Meeting Transcript UI Shareable" = "会議文字起こし UI を共有可能にする";
 "Leave this off to keep the meeting transcript overlay private. Turn it on if you want the UI to appear in screen sharing or screen recordings." = "オフのままなら会議文字起こしオーバーレイは非公開になり、画面共有や画面録画に表示されません。共有したい場合のみオンにしてください。";
+"Network appears to be offline. Check your connection and try again." = "ネットワークがオフラインのようです。接続を確認してから再試行してください。";
+"Remote ASR timed out. Please try again." = "リモート ASR がタイムアウトしました。再試行してください。";
+"Couldn't reach the remote ASR service. Check your network and proxy settings." = "リモート ASR サービスに接続できません。ネットワークとプロキシ設定を確認してください。";
+"Remote ASR authentication failed. Check the provider credentials and try again." = "リモート ASR の認証に失敗しました。プロバイダの認証情報を確認して再試行してください。";
+"Remote ASR billing or quota is unavailable. Check the provider account balance and limits." = "リモート ASR の残高またはクォータが利用できません。プロバイダの残高と制限を確認してください。";
+"Remote ASR access was denied. Check the provider permissions, region, or endpoint." = "リモート ASR へのアクセスが拒否されました。プロバイダの権限、リージョン、またはエンドポイントを確認してください。";
+"Remote ASR is busy or has reached its quota. Please wait a moment and try again." = "リモート ASR は混雑中、またはクォータ上限に達しています。少し待ってから再試行してください。";
+"Remote ASR is temporarily unavailable. Please try again later." = "リモート ASR は一時的に利用できません。しばらくしてから再試行してください。";
+"Remote ASR request failed." = "リモート ASR リクエストに失敗しました。";
