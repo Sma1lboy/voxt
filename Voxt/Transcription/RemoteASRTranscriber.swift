@@ -3243,8 +3243,16 @@ struct DoubaoStreamingTextAccumulator {
         if punctuationScalars.contains(leftLast) || punctuationScalars.contains(rightFirst) {
             return false
         }
-        let alphanumerics = CharacterSet.alphanumerics
-        return alphanumerics.contains(leftLast) && alphanumerics.contains(rightFirst)
+        return isASCIIInlineWordScalar(leftLast) && isASCIIInlineWordScalar(rightFirst)
+    }
+
+    private static func isASCIIInlineWordScalar(_ scalar: UnicodeScalar) -> Bool {
+        switch scalar.value {
+        case 48...57, 65...90, 97...122:
+            return true
+        default:
+            return false
+        }
     }
 }
 
