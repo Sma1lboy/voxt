@@ -266,4 +266,30 @@ final class RemoteModelConfigurationTests: XCTestCase {
             )
         )
     }
+
+    func testDoubaoStreamingTextAccumulatorAppendsSegmentedFinalResults() {
+        var accumulator = DoubaoStreamingTextAccumulator()
+
+        XCTAssertEqual(accumulator.replace(text: "你好", isFinal: false), "你好")
+        XCTAssertEqual(accumulator.replace(text: "你好", isFinal: true), "你好")
+        XCTAssertEqual(accumulator.replace(text: "测试豆包", isFinal: false), "你好测试豆包")
+        XCTAssertEqual(accumulator.replace(text: "测试豆包", isFinal: true), "你好测试豆包")
+    }
+
+    func testDoubaoStreamingTextAccumulatorHandlesCumulativeResultsWithoutDuplication() {
+        var accumulator = DoubaoStreamingTextAccumulator()
+
+        XCTAssertEqual(accumulator.replace(text: "hello", isFinal: true), "hello")
+        XCTAssertEqual(accumulator.replace(text: "hello world", isFinal: false), "hello world")
+        XCTAssertEqual(accumulator.replace(text: "hello world", isFinal: true), "hello world")
+        XCTAssertEqual(accumulator.replace(text: "hello world again", isFinal: false), "hello world again")
+    }
+
+    func testDoubaoStreamingTextAccumulatorAddsSpacesOnlyForAdjacentAlphanumerics() {
+        var accumulator = DoubaoStreamingTextAccumulator()
+
+        XCTAssertEqual(accumulator.replace(text: "hello", isFinal: true), "hello")
+        XCTAssertEqual(accumulator.replace(text: "world", isFinal: true), "hello world")
+        XCTAssertEqual(accumulator.replace(text: "你好", isFinal: true), "hello world你好")
+    }
 }

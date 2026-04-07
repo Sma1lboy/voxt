@@ -124,6 +124,8 @@
 "Connection test succeeded (Doubao ASR Free realtime reachable)." = "Connection test succeeded (Doubao ASR Free realtime reachable).";
 "Reset Cached Credentials" = "Reset Cached Credentials";
 "Cached credentials cleared." = "Cached credentials cleared.";
+"Doubao ASR Free is busy right now. Please wait a moment and try again." = "Doubao ASR Free is busy right now. Please wait a moment and try again.";
+"Remote ASR failed to start recording." = "Remote ASR failed to start recording.";
 "When enabled, pressing the translation shortcut with selected text translates the selection directly and replaces it." = "When enabled, pressing the translation shortcut with selected text translates the selection directly and replaces it.";
 "Automatically start Voxt when your Mac starts." = "Automatically start Voxt when your Mac starts.";
 "Show Voxt in your Mac Dock for quick access." = "Show Voxt in your Mac Dock for quick access.";

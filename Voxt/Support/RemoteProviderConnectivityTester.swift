@@ -1864,12 +1864,33 @@ enum DoubaoASRFreeRuntimeSupport {
     }
 
     static func connectAndStartSession(forceRefreshCredentials: Bool = false) async throws -> DoubaoASRFreeConnectResult {
-        do {
-            return try await connectAndStartSessionOnce(forceRefreshCredentials: forceRefreshCredentials)
-        } catch {
-            guard !forceRefreshCredentials else { throw error }
-            clearCachedCredentials()
-            return try await connectAndStartSessionOnce(forceRefreshCredentials: true)
+        let retryDelays: [Duration] = [.milliseconds(700), .milliseconds(1_200)]
+        var attemptedCredentialRefresh = forceRefreshCredentials
+        var shouldForceRefresh = forceRefreshCredentials
+        var concurrentRetryIndex = 0
+
+        while true {
+            do {
+                return try await connectAndStartSessionOnce(forceRefreshCredentials: shouldForceRefresh)
+            } catch {
+                if isConcurrentQuotaError(error),
+                   concurrentRetryIndex < retryDelays.count {
+                    let delay = retryDelays[concurrentRetryIndex]
+                    concurrentRetryIndex += 1
+                    try? await Task.sleep(for: delay)
+                    shouldForceRefresh = false
+                    continue
+                }
+
+                if !attemptedCredentialRefresh {
+                    clearCachedCredentials()
+                    attemptedCredentialRefresh = true
+                    shouldForceRefresh = true
+                    continue
+                }
+
+                throw error
+            }
         }
     }
 
@@ -2025,6 +2046,12 @@ enum DoubaoASRFreeRuntimeSupport {
             code: response.statusCode,
             userInfo: [NSLocalizedDescriptionKey: "\(context) failed: \(detail)"]
         )
+    }
+
+    private static func isConcurrentQuotaError(_ error: Error) -> Bool {
+        let description = (error as NSError).localizedDescription.lowercased()
+        return description.contains("exceededconcurrentquota")
+            || description.contains("concurrent quota")
     }
 
     private static func registerDevice() async throws -> DoubaoASRFreeCredentials {

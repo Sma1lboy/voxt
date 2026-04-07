@@ -420,6 +420,8 @@
 "Connection test succeeded (Doubao ASR Free realtime reachable)." = "连接测试成功（Doubao ASR Free 实时链路可达）。";
 "Reset Cached Credentials" = "重置缓存凭据";
 "Cached credentials cleared." = "缓存凭据已清除。";
+"Doubao ASR Free is busy right now. Please wait a moment and try again." = "Doubao ASR Free 当前繁忙，请稍等片刻后重试。";
+"Remote ASR failed to start recording." = "远程 ASR 启动录音失败。";
 "Endpoint (Optional)" = "端点（可选）";
 "API Key" = "API Key";
 "Paste API key" = "粘贴 API Key";

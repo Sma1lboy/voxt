@@ -31,6 +31,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
     @Published var isRequesting = false
 
     var onTranscriptionFinished: ((String) -> Void)?
+    var onStartFailure: ((String) -> Void)?
 
     private var recorder: AVAudioRecorder?
     private let audioEngine = AVAudioEngine()
@@ -80,6 +81,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 cleanupRecorderState()
                 cleanupDoubaoStreamingState()
                 activeProvider = nil
+                notifyStartFailure(error.localizedDescription)
             }
             return
         }
@@ -101,6 +103,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
                 cleanupRecorderState()
                 cleanupAliyunStreamingState()
                 activeProvider = nil
+                notifyStartFailure(error.localizedDescription)
             }
             return
         }
@@ -114,6 +117,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             VoxtLog.error("Remote ASR recorder setup failed: \(error.localizedDescription)")
             cleanupRecorderState()
             activeProvider = nil
+            notifyStartFailure(error.localizedDescription)
         }
     }
 
@@ -323,6 +327,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
             cleanupDoubaoFreeStreamingState()
             cleanupRecorderState()
             activeProvider = nil
+            notifyStartFailure(userVisibleRemoteStartFailureMessage(for: error))
         }
     }
 
@@ -2850,6 +2855,24 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         activeProvider = nil
         onTranscriptionFinished?(text.trimmingCharacters(in: .whitespacesAndNewlines))
     }
+
+    private func notifyStartFailure(_ message: String) {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        onStartFailure?(trimmed)
+    }
+
+    private func userVisibleRemoteStartFailureMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        let description = nsError.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = description.lowercased()
+        if normalized.contains("exceededconcurrentquota") || normalized.contains("concurrent quota") {
+            return AppLocalization.localizedString("Doubao ASR Free is busy right now. Please wait a moment and try again.")
+        }
+        return description.isEmpty
+            ? AppLocalization.localizedString("Remote ASR failed to start recording.")
+            : description
+    }
 }
 
 @MainActor
@@ -3056,20 +3079,19 @@ private final class DoubaoASRFreeStreamingContext {
 }
 
 private actor DoubaoResponseState {
-    private var text = ""
+    private var accumulator = DoubaoStreamingTextAccumulator()
     private var isFinal = false
     private var completionError: Error?
     private var isSocketClosed = false
 
     func replace(text newText: String, isFinal: Bool) -> String {
-        text = newText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if isFinal {
-            self.isFinal = true
-        }
-        return text
+        let merged = accumulator.replace(text: newText, isFinal: isFinal)
+        self.isFinal = isFinal
+        return merged
     }
 
     func markFinal() {
+        _ = accumulator.markFinal()
         isFinal = true
     }
 
@@ -3095,13 +3117,135 @@ private actor DoubaoResponseState {
         if let completionError {
             throw completionError
         }
-        return text
+        return accumulator.currentText
     }
 
     func currentText() -> String {
-        text
+        accumulator.currentText
     }
 
+}
+
+struct DoubaoStreamingTextAccumulator {
+    private var committedSegments: [String] = []
+    private var livePartial = ""
+
+    var currentText: String {
+        mergedText(committedSegments, livePartial: livePartial)
+    }
+
+    mutating func replace(text newText: String, isFinal: Bool) -> String {
+        let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            if isFinal {
+                _ = markFinal()
+            }
+            return currentText
+        }
+
+        if isFinal {
+            commit(trimmed)
+        } else {
+            updateLivePartial(trimmed)
+        }
+        return currentText
+    }
+
+    @discardableResult
+    mutating func markFinal() -> String {
+        let trimmedPartial = livePartial.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedPartial.isEmpty {
+            appendCommitted(trimmedPartial)
+            livePartial = ""
+        }
+        return currentText
+    }
+
+    private mutating func updateLivePartial(_ incoming: String) {
+        if let suffix = suffixAfterCommittedPrefix(incoming), !suffix.isEmpty {
+            livePartial = suffix
+            return
+        }
+        if incoming == committedText {
+            livePartial = ""
+            return
+        }
+        livePartial = incoming
+    }
+
+    private mutating func commit(_ incoming: String) {
+        if let suffix = suffixAfterCommittedPrefix(incoming), !suffix.isEmpty {
+            appendCommitted(suffix)
+        } else if !livePartial.isEmpty, incoming == currentText {
+            appendCommitted(livePartial)
+        } else if !livePartial.isEmpty, incoming == livePartial {
+            appendCommitted(livePartial)
+        } else {
+            appendCommitted(incoming)
+        }
+        livePartial = ""
+    }
+
+    private mutating func appendCommitted(_ segment: String) {
+        let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if trimmed == committedText {
+            return
+        }
+        if committedSegments.last != trimmed {
+            committedSegments.append(trimmed)
+        }
+    }
+
+    private var committedText: String {
+        mergedText(committedSegments, livePartial: nil)
+    }
+
+    private func suffixAfterCommittedPrefix(_ incoming: String) -> String? {
+        let committed = committedText
+        guard !committed.isEmpty else { return incoming }
+        guard incoming.hasPrefix(committed) else { return nil }
+        let start = incoming.index(incoming.startIndex, offsetBy: committed.count)
+        return incoming[start...].trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func mergedText(_ committedSegments: [String], livePartial: String?) -> String {
+        var values = committedSegments
+        if let livePartial {
+            let trimmed = livePartial.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                values.append(trimmed)
+            }
+        }
+        return values.reduce(into: "") { partialResult, segment in
+            partialResult = Self.mergeSegmentText(partialResult, segment)
+        }
+    }
+
+    private static func mergeSegmentText(_ lhs: String, _ rhs: String) -> String {
+        let left = lhs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let right = rhs.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !left.isEmpty else { return right }
+        guard !right.isEmpty else { return left }
+
+        let leftLast = left.unicodeScalars.last
+        let rightFirst = right.unicodeScalars.first
+        let separator = needsInlineSeparator(leftLast: leftLast, rightFirst: rightFirst) ? " " : ""
+        return left + separator + right
+    }
+
+    private static func needsInlineSeparator(
+        leftLast: UnicodeScalar?,
+        rightFirst: UnicodeScalar?
+    ) -> Bool {
+        guard let leftLast, let rightFirst else { return true }
+        let punctuationScalars = CharacterSet(charactersIn: " \t\n\r,.!?;:，。！？；：、)]}\"'》】）")
+        if punctuationScalars.contains(leftLast) || punctuationScalars.contains(rightFirst) {
+            return false
+        }
+        let alphanumerics = CharacterSet.alphanumerics
+        return alphanumerics.contains(leftLast) && alphanumerics.contains(rightFirst)
+    }
 }
 
     private extension UInt32 {
