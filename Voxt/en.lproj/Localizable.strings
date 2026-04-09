@@ -66,6 +66,8 @@
 "Show in Dock" = "Show in Dock";
 "Shortcut" = "Shortcut";
 "Transcription" = "Transcription";
+"Enable Meeting" = "Enable Meeting";
+"Turn on the dedicated meeting workflow, shortcut, overlay, and meeting-specific model settings." = "Turn on the dedicated meeting workflow, shortcut, overlay, and meeting-specific model settings.";
 "Record Transcription Shortcut" = "Record Transcription Shortcut";
 "Record Translation Shortcut" = "Record Translation Shortcut";
 "Type your shortcut now. Press Esc to cancel recording." = "Type your shortcut now. Press Esc to cancel recording.";
@@ -1017,6 +1019,7 @@
 "Hotkey Tips" = "Tips";
 "Use a single key such as fn, or combine it with modifier keys." = "Use a single key such as fn, or combine it with modifier keys.";
 "Long Press runs while held. Tap starts and stops with a tap. Meeting also starts and stops with a tap." = "Long Press runs while held. Tap starts and stops with a tap. Meeting also starts and stops with a tap.";
+"Long Press runs while held. Tap starts and stops with a tap." = "Long Press runs while held. Tap starts and stops with a tap.";
 "If text is selected, the translation shortcut translates and replaces the selection directly." = "If text is selected, the translation shortcut translates and replaces the selection directly.";
 "fn+Space may conflict with macOS Globe or input source switching. If needed, remap the system shortcut." = "fn+Space may conflict with macOS Globe or input source switching. If needed, remap the system shortcut.";
 "On macOS, fn shortcuts may conflict with Globe or input source switching. If needed, change that shortcut in System Settings > Keyboard > Keyboard Shortcuts > Input Sources." = "On macOS, fn shortcuts may conflict with Globe or input source switching. If needed, change that shortcut in System Settings > Keyboard > Keyboard Shortcuts > Input Sources.";
@@ -1133,6 +1136,9 @@
 "Latency: --" = "Latency: --";
 "Meeting Is Ready" = "Meeting Is Ready";
 "Meeting adds a dedicated shortcut, a separate meeting overlay, and a history flow for longer live sessions." = "Meeting adds a dedicated shortcut, a separate meeting overlay, and a history flow for longer live sessions.";
+"Meeting Shortcut" = "Meeting Shortcut";
+"Meeting is optional during onboarding. You can enable it later from Feature > Transcription." = "Meeting is optional during onboarding. You can enable it later from Feature > Transcription.";
+"Meeting permissions are only required after you turn this feature on." = "Meeting permissions are only required after you turn this feature on.";
 "Model Download Settings" = "Model Download Settings";
 "Open folder" = "Open folder";
 "Permissions For This Step" = "Permissions For This Step";
@@ -1142,5 +1148,6 @@
 "Use voice to rewrite selected text, or speak a full prompt when nothing is selected." = "Use voice to rewrite selected text, or speak a full prompt when nothing is selected.";
 "Aliyun API keys are region-specific; use the matching endpoint." = "Aliyun API keys are region-specific; use the matching endpoint.";
 "Apply Preset" = "Apply Preset";
+"Back" = "Back";
 "Clear" = "Clear";
 "Confirm" = "Confirm";

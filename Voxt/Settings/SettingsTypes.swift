@@ -177,6 +177,7 @@ enum OnboardingStepStatusResolver {
         case .appEnhancement:
             return snapshot.appEnhancementEnabled ? .ready : .optional
         case .meeting:
+            guard snapshot.meetingNotesEnabled else { return .optional }
             return snapshot.hasMeetingIssues ? .needsSetup : .ready
         case .finish:
             return .done
@@ -484,9 +485,16 @@ enum FeatureSettingsTab: String, CaseIterable, Identifiable {
         }
     }
 
-    static func visibleTabs(appEnhancementEnabled: Bool) -> [FeatureSettingsTab] {
+    static func visibleTabs(appEnhancementEnabled: Bool, meetingEnabled: Bool) -> [FeatureSettingsTab] {
         allCases.filter { tab in
-            appEnhancementEnabled || tab != .appEnhancement
+            switch tab {
+            case .appEnhancement:
+                return appEnhancementEnabled
+            case .meeting:
+                return meetingEnabled
+            default:
+                return true
+            }
         }
     }
 }

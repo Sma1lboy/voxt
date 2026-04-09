@@ -106,6 +106,7 @@ enum OnboardingPermissionRequirementResolver {
             }
             return permissions
         case .meeting:
+            guard context.meetingNotesEnabled else { return [] }
             return [
                 .microphone,
                 .accessibility,
@@ -139,12 +140,37 @@ enum OnboardingPermissionGrantResolver {
 }
 
 enum OnboardingRewriteTest {
-    static let defaultPrompt = String(localized: "Make this shorter and more polite.")
-    static let defaultSourceText = String(localized: "Hi team, I wanted to follow up about tomorrow's launch. We are still waiting on the final banner image, so please send it over before 3 PM if possible. Thanks.")
+    static var defaultPrompt: String {
+        defaultPrompt(localeIdentifier: AppLocalization.language.localeIdentifier)
+    }
+
+    static var defaultSourceText: String {
+        defaultSourceText(localeIdentifier: AppLocalization.language.localeIdentifier)
+    }
+
+    static func defaultPrompt(localeIdentifier: String) -> String {
+        AppLocalization.localizedString("Make this shorter and more polite.", localeIdentifier: localeIdentifier)
+    }
+
+    static func defaultSourceText(localeIdentifier: String) -> String {
+        AppLocalization.localizedString(
+            "Hi team, I wanted to follow up about tomorrow's launch. We are still waiting on the final banner image, so please send it over before 3 PM if possible. Thanks.",
+            localeIdentifier: localeIdentifier
+        )
+    }
 }
 
 enum OnboardingTranslationTest {
-    static let defaultInput = String(localized: "Thanks for joining the call. I'll send the updated timeline and action items after lunch.")
+    static var defaultInput: String {
+        defaultInput(localeIdentifier: AppLocalization.language.localeIdentifier)
+    }
+
+    static func defaultInput(localeIdentifier: String) -> String {
+        AppLocalization.localizedString(
+            "Thanks for joining the call. I'll send the updated timeline and action items after lunch.",
+            localeIdentifier: localeIdentifier
+        )
+    }
 }
 
 enum OnboardingVideoDemo {

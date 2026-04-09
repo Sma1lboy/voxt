@@ -238,8 +238,8 @@ extension OnboardingSettingsView {
         OnboardingSummaryCard(
             title: "System ASR",
             lines: [
-                String(localized: "Uses the macOS system speech recognizer with no download required."),
-                String(localized: "Best for the fastest setup, but meeting support and language coverage are more limited.")
+                localized("Uses the macOS system speech recognizer with no download required."),
+                localized("Best for the fastest setup, but meeting support and language coverage are more limited.")
             ]
         )
     }
@@ -331,12 +331,12 @@ extension OnboardingSettingsView {
             title: "Apple Intelligence",
             lines: appleIntelligenceAvailable
                 ? [
-                    String(localized: "Use the system model for cleanup, rewrite, and meeting summaries on this Mac."),
-                    String(localized: "Translation will keep using the best compatible model automatically.")
+                    localized("Use the system model for cleanup, rewrite, and meeting summaries on this Mac."),
+                    localized("Translation will keep using the best compatible model automatically.")
                 ]
                 : [
-                    String(localized: "Apple Intelligence is currently unavailable on this Mac."),
-                    String(localized: "You can still keep this selected and switch later after the system becomes available.")
+                    localized("Apple Intelligence is currently unavailable on this Mac."),
+                    localized("You can still keep this selected and switch later after the system becomes available.")
                 ]
         )
     }
@@ -397,12 +397,12 @@ extension OnboardingSettingsView {
                     if microphoneState.hasAvailableDevices {
                         SettingsSelectionButton(width: 272, action: { isMicrophonePriorityDialogPresented = true }) {
                             HStack(spacing: 0) {
-                                Text(microphoneState.activeDevice?.name ?? String(localized: "No available microphone devices"))
+                                Text(microphoneState.activeDevice?.name ?? localized("No available microphone devices"))
                                     .lineLimit(1)
                             }
                         }
                     } else {
-                        Text(String(localized: "No available microphone devices"))
+                        Text(localized("No available microphone devices"))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.red)
                     }
@@ -617,16 +617,30 @@ extension OnboardingSettingsView {
     var meetingStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             GeneralSettingsCard(title: "Meeting") {
-                Text(localized("Meeting adds a dedicated shortcut, a separate meeting overlay, and a history flow for longer live sessions."))
+                Toggle(localized("Enable Meeting"), isOn: meetingEnabledBinding)
+
+                Text(localized("Turn on the dedicated meeting workflow, shortcut, overlay, and meeting-specific model settings."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            if meetingBlockingMessages.isEmpty {
+            OnboardingSummaryCard(
+                title: "Meeting Shortcut",
+                lines: onboardingMeetingStatusLines
+            )
+
+            if !featureSettings.meeting.enabled {
+                OnboardingSummaryCard(
+                    title: "Disabled",
+                    lines: [
+                        localized("Meeting permissions are only required after you turn this feature on.")
+                    ]
+                )
+            } else if meetingBlockingMessages.isEmpty {
                 OnboardingSummaryCard(
                     title: "Meeting Is Ready",
                     lines: [
-                        String(localized: "The current engine and permissions satisfy the meeting requirements.")
+                        localized("The current engine and permissions satisfy the meeting requirements.")
                     ]
                 )
             } else {
@@ -674,7 +688,7 @@ extension OnboardingSettingsView {
                         AppLocalization.format("LLM: %@", onboardingLLMSummary),
                         AppLocalization.format("Translation: %@", translationProviderSummary),
                         AppLocalization.format("Rewrite: %@", rewriteProviderSummary),
-                        AppLocalization.format("Meeting: %@", meetingBlockingMessages.isEmpty ? AppLocalization.localizedString("Ready") : AppLocalization.localizedString("Needs Setup"))
+                        AppLocalization.format("Meeting: %@", onboardingMeetingSummary)
                     ]
                 )
 
@@ -771,22 +785,22 @@ extension OnboardingSettingsView {
     func modelPathDescription(_ choice: OnboardingModelPathChoice) -> String {
         switch choice {
         case .local:
-            return String(localized: "Runs speech and text models on your Mac. Better privacy, works offline after download, but needs local disk space and setup time.")
+            return localized("Runs speech and text models on your Mac. Better privacy, works offline after download, but needs local disk space and setup time.")
         case .remote:
-            return String(localized: "Uses cloud providers for speech and text. Fast to start, but requires network access and provider configuration.")
+            return localized("Uses cloud providers for speech and text. Fast to start, but requires network access and provider configuration.")
         case .dictation:
-            return String(localized: "Uses Apple's built-in dictation path with the lightest setup, but fewer supported scenarios.")
+            return localized("Uses Apple's built-in dictation path with the lightest setup, but fewer supported scenarios.")
         }
     }
 
     func llmPathDescription(_ choice: OnboardingTextModelPathChoice) -> String {
         switch choice {
         case .local:
-            return String(localized: "Uses a local text model for cleanup, translation, rewrite, and summaries after download.")
+            return localized("Uses a local text model for cleanup, translation, rewrite, and summaries after download.")
         case .remote:
-            return String(localized: "Uses a cloud text model. Fast to start, but requires network access and provider configuration.")
+            return localized("Uses a cloud text model. Fast to start, but requires network access and provider configuration.")
         case .system:
-            return String(localized: "Uses the macOS system model when available, so later onboarding can stay minimal.")
+            return localized("Uses the macOS system model when available, so later onboarding can stay minimal.")
         }
     }
 
@@ -863,11 +877,11 @@ extension OnboardingSettingsView {
     var hotkeyPresetDescription: String {
         switch hotkeyPresetSelection.wrappedValue {
         case .fnCombo:
-            return String(localized: "Recommended default: fn for transcription, fn+shift for translation, fn+control for rewrite, and fn+option for meeting.")
+            return localized("Recommended default: fn for transcription, fn+shift for translation, fn+control for rewrite, and fn+option for meeting.")
         case .commandCombo:
-            return String(localized: "Useful when function-key combinations are already reserved by the system or keyboard tools.")
+            return localized("Useful when function-key combinations are already reserved by the system or keyboard tools.")
         case .custom:
-            return String(localized: "You can fine-tune every shortcut later from the Hotkey page.")
+            return localized("You can fine-tune every shortcut later from the Hotkey page.")
         }
     }
 
@@ -880,7 +894,7 @@ extension OnboardingSettingsView {
         if translateSelectedTextOnTranslationHotkey {
             lines.append(AppLocalization.format("Select text in the textarea below, then press %@ to translate the selection directly.", formattedTranslationHotkey))
         } else {
-            lines.append(String(localized: "Enable “Translate selected text with translation shortcut” above if you want the shortcut to act on selected text in this textarea."))
+            lines.append(localized("Enable “Translate selected text with translation shortcut” above if you want the shortcut to act on selected text in this textarea."))
         }
 
         return lines

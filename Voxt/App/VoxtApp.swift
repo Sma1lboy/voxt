@@ -378,7 +378,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             AppPreferenceKey.rewriteModelProvider: RewriteModelProvider.customLLM.rawValue,
             AppPreferenceKey.escapeKeyCancelsOverlaySession: true,
             AppPreferenceKey.translateSelectedTextOnTranslationHotkey: true,
-            AppPreferenceKey.meetingNotesBetaEnabled: true,
+            AppPreferenceKey.meetingNotesBetaEnabled: false,
             AppPreferenceKey.hideMeetingOverlayFromScreenSharing: false,
             AppPreferenceKey.meetingOverlayCollapsed: false,
             AppPreferenceKey.meetingRealtimeTranslateEnabled: false,

@@ -66,6 +66,8 @@
 "Show in Dock" = "Dock に表示";
 "Shortcut" = "ショートカット";
 "Transcription" = "文字起こし";
+"Enable Meeting" = "会議を有効化";
+"Turn on the dedicated meeting workflow, shortcut, overlay, and meeting-specific model settings." = "専用の会議ワークフロー、ショートカット、オーバーレイ、会議専用モデル設定を有効にします。";
 "Record Transcription Shortcut" = "文字起こしショートカットを記録";
 "Record Translation Shortcut" = "翻訳ショートカットを記録";
 "Type your shortcut now. Press Esc to cancel recording." = "ショートカットを入力してください。Esc でキャンセルします。";
@@ -934,6 +936,7 @@
 "Hotkey Tips" = "ヒント";
 "Use a single key such as fn, or combine it with modifier keys." = "fn などの単独キー、または修飾キーとの組み合わせを使えます。";
 "Long Press runs while held. Tap starts and stops with a tap. Meeting also starts and stops with a tap." = "長押しは押している間だけ実行されます。タップは 1 回で開始、もう 1 回で停止します。会議も同じです。";
+"Long Press runs while held. Tap starts and stops with a tap." = "長押しは押している間だけ実行されます。タップは 1 回で開始、もう 1 回で停止します。";
 "If text is selected, the translation shortcut translates and replaces the selection directly." = "テキストが選択されている場合、翻訳ショートカットはその選択範囲を直接翻訳して置き換えます。";
 "fn+Space may conflict with macOS Globe or input source switching. If needed, remap the system shortcut." = "fn+Space は macOS の Globe や入力ソース切り替えと競合する場合があります。必要に応じてシステムショートカットを変更してください。";
 "On macOS, fn shortcuts may conflict with Globe or input source switching. If needed, change that shortcut in System Settings > Keyboard > Keyboard Shortcuts > Input Sources." = "macOS では、fn ショートカットが Globe や入力ソース切り替えと競合する場合があります。必要であれば、システム設定 > キーボード > キーボードショートカット > 入力ソース でそのショートカットを変更してください。";
@@ -1053,6 +1056,9 @@
 "Latency: --" = "遅延: --";
 "Meeting Is Ready" = "会議の準備完了";
 "Meeting adds a dedicated shortcut, a separate meeting overlay, and a history flow for longer live sessions." = "会議機能では専用ショートカット、独立した会議オーバーレイ、長時間ライブセッション向けの履歴フローが追加されます。";
+"Meeting Shortcut" = "会議ショートカット";
+"Meeting is optional during onboarding. You can enable it later from Feature > Transcription." = "会議はオンボーディング中は任意です。後で 機能 > 文字起こし から有効にできます。";
+"Meeting permissions are only required after you turn this feature on." = "この機能を有効にした後でのみ、会議用の権限が必要になります。";
 "Model Download Settings" = "モデルダウンロード設定";
 "Open folder" = "フォルダを開く";
 "Permissions For This Step" = "この手順に必要な権限";
@@ -1062,5 +1068,6 @@
 "Use voice to rewrite selected text, or speak a full prompt when nothing is selected." = "選択中のテキストは音声で書き換えられ、何も選択していない場合は完全な指示をそのまま話せます。";
 "Aliyun API keys are region-specific; use the matching endpoint." = "Aliyun の API キーはリージョンごとに異なるため、対応するエンドポイントを使用してください。";
 "Apply Preset" = "プリセットを適用";
+"Back" = "戻る";
 "Clear" = "クリア";
 "Confirm" = "確認";

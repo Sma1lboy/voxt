@@ -69,6 +69,17 @@ final class SettingsTypesTests: XCTestCase {
         XCTAssertEqual(OnboardingStepStatusResolver.resolve(step: .meeting, snapshot: blockedSnapshot), .needsSetup)
         XCTAssertEqual(OnboardingStepStatusResolver.resolve(step: .finish, snapshot: blockedSnapshot), .done)
         XCTAssertEqual(OnboardingStepStatusResolver.resolve(step: .meeting, snapshot: readySnapshot), .ready)
+
+        let meetingDisabledSnapshot = OnboardingStepStatusSnapshot(
+            hasModelIssues: false,
+            hasRecordingMicrophone: true,
+            hasRecordingPermissions: true,
+            hasRewriteIssues: false,
+            appEnhancementEnabled: false,
+            meetingNotesEnabled: false,
+            hasMeetingIssues: true
+        )
+        XCTAssertEqual(OnboardingStepStatusResolver.resolve(step: .meeting, snapshot: meetingDisabledSnapshot), .optional)
     }
 
     func testVisibleTabsHideAppEnhancementWhenFeatureDisabled() {
@@ -78,8 +89,24 @@ final class SettingsTypesTests: XCTestCase {
     }
 
     func testFeatureVisibleTabsHideAppEnhancementWhenDisabled() {
-        XCTAssertFalse(FeatureSettingsTab.visibleTabs(appEnhancementEnabled: false).contains(.appEnhancement))
-        XCTAssertTrue(FeatureSettingsTab.visibleTabs(appEnhancementEnabled: true).contains(.appEnhancement))
+        XCTAssertFalse(FeatureSettingsTab.visibleTabs(appEnhancementEnabled: false, meetingEnabled: true).contains(.appEnhancement))
+        XCTAssertTrue(FeatureSettingsTab.visibleTabs(appEnhancementEnabled: true, meetingEnabled: true).contains(.appEnhancement))
+    }
+
+    func testFeatureVisibleTabsHideMeetingWhenDisabled() {
+        XCTAssertFalse(FeatureSettingsTab.visibleTabs(appEnhancementEnabled: true, meetingEnabled: false).contains(.meeting))
+        XCTAssertTrue(FeatureSettingsTab.visibleTabs(appEnhancementEnabled: true, meetingEnabled: true).contains(.meeting))
+    }
+
+    func testHotkeyShortcutVisibilityHidesMeetingWhenDisabled() {
+        XCTAssertEqual(
+            HotkeyShortcutVisibility.visibleKinds(meetingEnabled: false),
+            [.transcription, .translation, .rewrite]
+        )
+        XCTAssertEqual(
+            HotkeyShortcutVisibility.visibleKinds(meetingEnabled: true),
+            [.transcription, .translation, .rewrite, .meeting]
+        )
     }
 
     func testFeatureNavigationTargetMapsAppBranchSectionToFeatureMode() {

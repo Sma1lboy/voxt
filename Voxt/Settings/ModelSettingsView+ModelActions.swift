@@ -37,7 +37,7 @@ extension ModelSettingsView {
                 title: AppLocalization.localizedString(model.title),
                 isActive: isCurrentWhisperModel(model.id),
                 status: whisperModelStatusText(for: model.id),
-                badgeText: hasIssue(for: .whisperModel(model.id)) ? String(localized: "Needs Setup") : nil,
+                badgeText: hasIssue(for: .whisperModel(model.id)) ? AppLocalization.localizedString("Needs Setup") : nil,
                 isTitleUnderlined: isDownloaded,
                 onTapTitle: isDownloaded ? { openWhisperModelDirectory(model.id) } : nil,
                 actions: actions
@@ -67,7 +67,7 @@ extension ModelSettingsView {
                 title: provider.title,
                 isActive: isSelected,
                 status: status,
-                badgeText: (hasIssue(for: .remoteASRProvider(provider)) || needsMeetingSetup) ? String(localized: "Needs Setup") : nil,
+                badgeText: (hasIssue(for: .remoteASRProvider(provider)) || needsMeetingSetup) ? AppLocalization.localizedString("Needs Setup") : nil,
                 actions: [
                     ModelTableAction(
                         title: isSelected ? "Using" : "Use",
@@ -148,7 +148,7 @@ extension ModelSettingsView {
                 title: model.title,
                 isActive: isCurrentModel(model.id),
                 status: modelStatusText(for: model.id),
-                badgeText: hasIssue(for: .mlxModel(model.id)) ? String(localized: "Needs Setup") : nil,
+                badgeText: hasIssue(for: .mlxModel(model.id)) ? AppLocalization.localizedString("Needs Setup") : nil,
                 isTitleUnderlined: isDownloaded,
                 onTapTitle: isDownloaded ? { openMLXModelDirectory(model.id) } : nil,
                 actions: actions
@@ -209,7 +209,7 @@ extension ModelSettingsView {
             .translationRemoteLLM(provider),
             .rewriteRemoteLLM(provider)
         ]
-        return missingConfigurationIssues.contains(where: { scopes.contains($0.scope) }) ? String(localized: "Needs Setup") : nil
+        return missingConfigurationIssues.contains(where: { scopes.contains($0.scope) }) ? AppLocalization.localizedString("Needs Setup") : nil
     }
 
     func customLLMBadgeText(for repo: String) -> String? {
@@ -218,7 +218,7 @@ extension ModelSettingsView {
             .translationCustomLLM(repo),
             .rewriteCustomLLM(repo)
         ]
-        return missingConfigurationIssues.contains(where: { scopes.contains($0.scope) }) ? String(localized: "Needs Setup") : nil
+        return missingConfigurationIssues.contains(where: { scopes.contains($0.scope) }) ? AppLocalization.localizedString("Needs Setup") : nil
     }
 
     func useModel(_ repo: String) {

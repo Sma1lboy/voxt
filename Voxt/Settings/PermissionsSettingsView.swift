@@ -74,12 +74,20 @@ struct PermissionsSettingsView: View {
         TranscriptionEngine(rawValue: transcriptionEngineRaw) ?? .mlxAudio
     }
 
+    private var featureSettings: FeatureSettings {
+        FeatureSettingsStore.load(defaults: .standard)
+    }
+
+    private var meetingEnabled: Bool {
+        featureSettings.meeting.enabled
+    }
+
     private var permissionRequirementContext: SettingsPermissionRequirementContext {
         SettingsPermissionRequirementContext(
             selectedEngine: transcriptionEngine,
             muteSystemAudioWhileRecording: muteSystemAudioWhileRecording,
-            meetingNotesEnabled: true,
-            featureSettings: FeatureSettingsStore.load(defaults: .standard)
+            meetingNotesEnabled: meetingEnabled,
+            featureSettings: featureSettings
         )
     }
 

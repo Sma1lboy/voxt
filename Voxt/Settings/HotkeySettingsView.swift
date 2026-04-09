@@ -2,6 +2,10 @@ import SwiftUI
 import AppKit
 import Carbon
 
+private func localized(_ key: String) -> String {
+    AppLocalization.localizedString(key)
+}
+
 private struct HotkeyConflictRule {
     let keyCode: UInt16
     let modifiers: NSEvent.ModifierFlags
@@ -19,6 +23,34 @@ private let hotkeyConflictRules: [HotkeyConflictRule] = [
     HotkeyConflictRule(keyCode: UInt16(kVK_ANSI_M), modifiers: [.command], messageKey: "Conflicts with Minimise (⌘M)."),
     HotkeyConflictRule(keyCode: UInt16(kVK_ANSI_W), modifiers: [.command], messageKey: "Conflicts with Close (⌘W).")
 ]
+
+enum HotkeyShortcutKind: String, CaseIterable {
+    case transcription
+    case translation
+    case rewrite
+    case meeting
+
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .transcription:
+            return "Transcription"
+        case .translation:
+            return "Translation"
+        case .rewrite:
+            return "Content Rewrite"
+        case .meeting:
+            return "Meeting"
+        }
+    }
+}
+
+enum HotkeyShortcutVisibility {
+    static func visibleKinds(meetingEnabled: Bool) -> [HotkeyShortcutKind] {
+        meetingEnabled
+            ? [.transcription, .translation, .rewrite, .meeting]
+            : [.transcription, .translation, .rewrite]
+    }
+}
 
 struct HotkeySettingsView: View {
     private enum RecordingField {
@@ -45,11 +77,20 @@ struct HotkeySettingsView: View {
     @AppStorage(AppPreferenceKey.hotkeyPreset) private var hotkeyPreset = HotkeyPreference.defaultPreset.rawValue
     @AppStorage(AppPreferenceKey.escapeKeyCancelsOverlaySession) private var escapeKeyCancelsOverlaySession = true
     @AppStorage(AppPreferenceKey.interfaceLanguage) private var interfaceLanguageRaw = AppInterfaceLanguage.system.rawValue
+    @AppStorage(AppPreferenceKey.featureSettings) private var featureSettingsRaw = ""
 
     @State private var recordingField: RecordingField?
     @State private var pendingCapturedField: RecordingField?
     @State private var pendingCapturedHotkey: HotkeyPreference.Hotkey?
     @State private var recorderMessageKey: String?
+
+    private var featureSettings: FeatureSettings {
+        FeatureSettingsStore.load(defaults: .standard)
+    }
+
+    private var meetingEnabled: Bool {
+        featureSettings.meeting.enabled
+    }
 
     private var hotkeyBinding: Binding<UInt16> {
         Binding(
@@ -220,11 +261,11 @@ struct HotkeySettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             GroupBox {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Shortcut")
+                    Text(localized("Shortcut"))
                         .font(.headline)
 
                     HStack(alignment: .center, spacing: 12) {
-                        Text("Preset")
+                        Text(localized("Preset"))
                             .foregroundStyle(.secondary)
                         Spacer()
                         SettingsMenuPicker(
@@ -239,9 +280,9 @@ struct HotkeySettingsView: View {
 
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Distinguish Left/Right Modifiers")
+                            Text(localized("Distinguish Left/Right Modifiers"))
                                 .foregroundStyle(.secondary)
-                            Text("When enabled, Left Shift and Right Shift are treated as different shortcuts.")
+                            Text(localized("When enabled, Left Shift and Right Shift are treated as different shortcuts."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -309,28 +350,30 @@ struct HotkeySettingsView: View {
                         onConfirmPending: confirmPendingCapture
                     )
 
-                    shortcutInput(
-                        titleKey: "Meeting",
-                        hotkey: displayedHotkey(for: .meeting, current: currentMeetingHotkey),
-                        isRecording: recordingField == .meeting,
-                        isPendingConfirmation: isPendingConfirmation(for: .meeting),
-                        onFocus: { beginRecording(.meeting) },
-                        onReset: {
-                            meetingHotkeyBinding.wrappedValue = HotkeyPreference.defaultMeetingKeyCode
-                            meetingModifierBinding.wrappedValue = HotkeyPreference.defaultMeetingModifiers
-                            meetingSidedModifierBinding.wrappedValue = []
-                            hotkeyPreset = HotkeyPreference.Preset.custom.rawValue
-                        },
-                        onCancelPending: discardPendingCapture,
-                        onConfirmPending: confirmPendingCapture
-                    )
+                    if meetingEnabled {
+                        shortcutInput(
+                            titleKey: "Meeting",
+                            hotkey: displayedHotkey(for: .meeting, current: currentMeetingHotkey),
+                            isRecording: recordingField == .meeting,
+                            isPendingConfirmation: isPendingConfirmation(for: .meeting),
+                            onFocus: { beginRecording(.meeting) },
+                            onReset: {
+                                meetingHotkeyBinding.wrappedValue = HotkeyPreference.defaultMeetingKeyCode
+                                meetingModifierBinding.wrappedValue = HotkeyPreference.defaultMeetingModifiers
+                                meetingSidedModifierBinding.wrappedValue = []
+                                hotkeyPreset = HotkeyPreference.Preset.custom.rawValue
+                            },
+                            onCancelPending: discardPendingCapture,
+                            onConfirmPending: confirmPendingCapture
+                        )
+                    }
 
                     if recordingField != nil, pendingCapturedField != recordingField {
-                        Text("Type your shortcut now. Press Esc to cancel recording.")
+                        Text(localized("Type your shortcut now. Press Esc to cancel recording."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else if pendingCapturedField != nil {
-                        Text("Shortcut captured. Press another shortcut to replace it, or choose Confirm / Cancel.")
+                        Text(localized("Shortcut captured. Press another shortcut to replace it, or choose Confirm / Cancel."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -359,44 +402,44 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if let conflict = hotkeyConflictMessage(for: currentMeetingHotkey) {
+                    if meetingEnabled, let conflict = hotkeyConflictMessage(for: currentMeetingHotkey) {
                         Text(localizedString("Meeting notes shortcut: %@", conflict))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
                     if currentHotkey == currentTranslationHotkey {
-                        Text("Transcription and translation shortcuts should be different.")
+                        Text(localized("Transcription and translation shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
                     if currentHotkey == currentRewriteHotkey {
-                        Text("Transcription and content rewrite shortcuts should be different.")
+                        Text(localized("Transcription and content rewrite shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
                     if currentTranslationHotkey == currentRewriteHotkey {
-                        Text("Translation and content rewrite shortcuts should be different.")
+                        Text(localized("Translation and content rewrite shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if currentHotkey == currentMeetingHotkey {
-                        Text("Transcription and meeting notes shortcuts should be different.")
+                    if meetingEnabled, currentHotkey == currentMeetingHotkey {
+                        Text(localized("Transcription and meeting notes shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if currentTranslationHotkey == currentMeetingHotkey {
-                        Text("Translation and meeting notes shortcuts should be different.")
+                    if meetingEnabled, currentTranslationHotkey == currentMeetingHotkey {
+                        Text(localized("Translation and meeting notes shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if currentRewriteHotkey == currentMeetingHotkey {
-                        Text("Content rewrite and meeting notes shortcuts should be different.")
+                    if meetingEnabled, currentRewriteHotkey == currentMeetingHotkey {
+                        Text(localized("Content rewrite and meeting notes shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
@@ -422,7 +465,7 @@ struct HotkeySettingsView: View {
                     .frame(width: 0, height: 0)
 
                     HStack(alignment: .center, spacing: 12) {
-                        Text("Trigger")
+                        Text(localized("Trigger"))
                             .foregroundStyle(.secondary)
                         Spacer()
                         SettingsMenuPicker(
@@ -441,14 +484,14 @@ struct HotkeySettingsView: View {
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Cancel Shortcut")
+                    Text(localized("Cancel Shortcut"))
                         .font(.headline)
 
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Use Esc to Cancel")
+                            Text(localized("Use Esc to Cancel"))
                                 .foregroundStyle(.secondary)
-                            Text("When enabled, pressing Esc cancels the active overlay session. Turn this off to disable Esc cancellation.")
+                            Text(localized("When enabled, pressing Esc cancels the active overlay session. Turn this off to disable Esc cancellation."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -467,18 +510,21 @@ struct HotkeySettingsView: View {
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(String(localized: "Hotkey Tips"))
+                    Text(localized("Hotkey Tips"))
                         .font(.headline)
-                    Text(String(localized: "Use a single key such as fn, or combine it with modifier keys."))
+                    Text(localized("Use a single key such as fn, or combine it with modifier keys."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(String(localized: "Long Press runs while held. Tap starts and stops with a tap. Meeting also starts and stops with a tap."))
+                    Text(localized(meetingEnabled
+                        ? "Long Press runs while held. Tap starts and stops with a tap. Meeting also starts and stops with a tap."
+                        : "Long Press runs while held. Tap starts and stops with a tap."
+                    ))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(String(localized: "If text is selected, the translation shortcut translates and replaces the selection directly."))
+                    Text(localized("If text is selected, the translation shortcut translates and replaces the selection directly."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(String(localized: "On macOS, fn shortcuts may conflict with Globe or input source switching. If needed, change that shortcut in System Settings > Keyboard > Keyboard Shortcuts > Input Sources."))
+                    Text(localized("On macOS, fn shortcuts may conflict with Globe or input source switching. If needed, change that shortcut in System Settings > Keyboard > Keyboard Shortcuts > Input Sources."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -487,16 +533,17 @@ struct HotkeySettingsView: View {
             }
         }
         .id(interfaceLanguageRaw)
+        .id(featureSettingsRaw)
     }
 
     private func hotkeyConflictMessage(for hotkey: HotkeyPreference.Hotkey) -> String? {
         return hotkeyConflictRules.first {
             hotkey.keyCode == $0.keyCode && hotkey.modifiers == $0.modifiers
-        }.map { NSLocalizedString($0.messageKey, comment: "") }
+        }.map { AppLocalization.localizedString($0.messageKey) }
     }
 
     private func localizedString(_ formatKey: String, _ argument: String) -> String {
-        String(format: NSLocalizedString(formatKey, comment: ""), argument)
+        AppLocalization.format(formatKey, argument)
     }
 
     private func applyPreset(_ preset: HotkeyPreference.Preset) {
@@ -541,7 +588,7 @@ struct HotkeySettingsView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                Text(isRecording && !isPendingConfirmation ? String(localized: "Listening...") : HotkeyPreference.displayString(for: hotkey, distinguishModifierSides: distinguishModifierSides))
+                Text(isRecording && !isPendingConfirmation ? localized("Listening...") : HotkeyPreference.displayString(for: hotkey, distinguishModifierSides: distinguishModifierSides))
                     .font(.system(.body, design: .rounded))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
@@ -550,7 +597,7 @@ struct HotkeySettingsView: View {
                     .layoutPriority(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if isPendingConfirmation {
-                    Button("Cancel", action: onCancelPending)
+                    Button(localized("Cancel"), action: onCancelPending)
                         .buttonStyle(.plain)
                         .font(.caption)
                         .padding(.horizontal, 6)
@@ -560,7 +607,7 @@ struct HotkeySettingsView: View {
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .fill(Color(nsColor: .controlAccentColor).opacity(0.12))
                         )
-                    Button("Confirm", action: onConfirmPending)
+                    Button(localized("Confirm"), action: onConfirmPending)
                         .buttonStyle(.plain)
                         .font(.caption)
                         .fontWeight(.semibold)
@@ -572,7 +619,7 @@ struct HotkeySettingsView: View {
                                 .fill(Color.accentColor.opacity(0.18))
                         )
                 } else if isRecording {
-                    Button("Cancel", action: onCancelPending)
+                    Button(localized("Cancel"), action: onCancelPending)
                         .buttonStyle(.plain)
                         .font(.caption)
                         .padding(.horizontal, 6)
@@ -588,7 +635,7 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help(Text("Reset shortcut"))
+                    .help(Text(localized("Reset shortcut")))
                 }
             }
             .frame(height: 16)

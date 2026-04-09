@@ -261,6 +261,7 @@ struct OnboardingSettingsView: View {
     }
 
     var meetingBlockingMessages: [String] {
+        guard featureSettings.meeting.enabled else { return [] }
         var messages: [String] = []
         let remoteConfiguration = RemoteModelConfigurationStore.resolvedASRConfiguration(
             provider: selectedRemoteASRProvider,
@@ -278,7 +279,7 @@ struct OnboardingSettingsView: View {
         }
 
         if SystemAudioCapturePermission.authorizationStatus() != .authorized {
-            messages.append(String(localized: "System audio recording permission is required for Meeting. Enable it in Settings > Permissions."))
+            messages.append(localized("System audio recording permission is required for Meeting. Enable it in Settings > Permissions."))
         }
 
         return Array(Set(messages))
@@ -291,7 +292,7 @@ struct OnboardingSettingsView: View {
             hasRecordingPermissions: recordingPermissionsSatisfied,
             hasRewriteIssues: !rewriteIssues.isEmpty,
             appEnhancementEnabled: appEnhancementEnabled,
-            meetingNotesEnabled: true,
+            meetingNotesEnabled: featureSettings.meeting.enabled,
             hasMeetingIssues: !meetingBlockingMessages.isEmpty
         )
     }
@@ -300,7 +301,7 @@ struct OnboardingSettingsView: View {
         OnboardingPermissionRequirementContext(
             selectedEngine: selectedEngine,
             muteSystemAudioWhileRecording: muteSystemAudioWhileRecording,
-            meetingNotesEnabled: true
+            meetingNotesEnabled: featureSettings.meeting.enabled
         )
     }
 
@@ -348,6 +349,18 @@ struct OnboardingSettingsView: View {
         )
     }
 
+    var meetingEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { featureSettings.meeting.enabled },
+            set: { isEnabled in
+                FeatureSettingsStore.update(defaults: .standard) { settings in
+                    settings.meeting.enabled = isEnabled
+                }
+                featureSettings = FeatureSettingsStore.load(defaults: .standard)
+            }
+        )
+    }
+
     private var onboardingObservedContent: AnyView {
         let localized = AnyView(onboardingBodyContent.environment(\.locale, interfaceLanguage.locale))
         let appeared = AnyView(localized.onAppear {
@@ -361,6 +374,7 @@ struct OnboardingSettingsView: View {
                 handleMuteSystemAudioChange(newValue)
             })
         let languageObserved = AnyView(muteObserved.onChange(of: interfaceLanguageRaw) { _, _ in
+                syncLocalizedOnboardingSamples()
                 NotificationCenter.default.post(name: .voxtInterfaceLanguageDidChange, object: nil)
             })
         let featureObserved = AnyView(languageObserved.onChange(of: featureSettingsRaw) { _, _ in
@@ -482,6 +496,7 @@ struct OnboardingSettingsView: View {
 
     var body: some View {
         onboardingSheetContent
+            .id(interfaceLanguageRaw)
     }
 
     var onboardingSidebar: some View {
@@ -530,7 +545,7 @@ struct OnboardingSettingsView: View {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(.red)
-                            Text(String(localized: "Permissions Disabled"))
+                            Text(localized("Permissions Disabled"))
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.red)
                             Spacer(minLength: 0)
@@ -799,21 +814,21 @@ struct OnboardingSettingsView: View {
     var recordingPermissionMessages: [String] {
         var messages: [String] = []
         if !OnboardingPermissionGrantResolver.isGranted(.microphone) {
-            messages.append(String(localized: "Microphone permission is required. Enable it in Settings > Permissions."))
+            messages.append(localized("Microphone permission is required. Enable it in Settings > Permissions."))
         }
         if selectedEngine == .dictation,
            !OnboardingPermissionGrantResolver.isGranted(.speechRecognition) {
-            messages.append(String(localized: "Speech Recognition permission is required for Direct Dictation. Enable it in Settings > Permissions."))
+            messages.append(localized("Speech Recognition permission is required for Direct Dictation. Enable it in Settings > Permissions."))
         }
         if !OnboardingPermissionGrantResolver.isGranted(.accessibility) {
-            messages.append(String(localized: "Accessibility permission is required to insert text into other apps."))
+            messages.append(localized("Accessibility permission is required to insert text into other apps."))
         }
         if !OnboardingPermissionGrantResolver.isGranted(.inputMonitoring) {
-            messages.append(String(localized: "Input Monitoring permission improves global shortcut capture. If fn shortcuts still conflict, change the macOS input source shortcut in Keyboard settings."))
+            messages.append(localized("Input Monitoring permission improves global shortcut capture. If fn shortcuts still conflict, change the macOS input source shortcut in Keyboard settings."))
         }
         if muteSystemAudioWhileRecording,
            !OnboardingPermissionGrantResolver.isGranted(.systemAudioCapture) {
-            messages.append(String(localized: "System audio recording permission is required when muting other media during recording."))
+            messages.append(localized("System audio recording permission is required when muting other media during recording."))
         }
         return messages
     }
@@ -843,6 +858,25 @@ struct OnboardingSettingsView: View {
     var formattedMeetingHotkey: String {
         let hotkey = HotkeyPreference.loadMeeting()
         return HotkeyPreference.displayString(for: hotkey, distinguishModifierSides: hotkeyDistinguishModifierSides)
+    }
+
+    var onboardingMeetingSummary: String {
+        guard featureSettings.meeting.enabled else {
+            return AppLocalization.localizedString("Disabled")
+        }
+        return meetingBlockingMessages.isEmpty
+            ? AppLocalization.localizedString("Ready")
+            : AppLocalization.localizedString("Needs Setup")
+    }
+
+    var onboardingMeetingStatusLines: [String] {
+        guard featureSettings.meeting.enabled else {
+            return [localized("Meeting is optional during onboarding. You can enable it later from Feature > Transcription.")]
+        }
+
+        var lines = [AppLocalization.format("Meeting shortcut: %@", formattedMeetingHotkey)]
+        lines.append(localized("Meeting notes: Tap the meeting shortcut to start the dedicated meeting overlay. Tap it again to stop the meeting session."))
+        return lines
     }
 
     private var onboardingASRSelectionID: FeatureModelSelectionID {
@@ -903,7 +937,6 @@ struct OnboardingSettingsView: View {
             settings.rewrite.llmSelectionID = llmSelection
             settings.rewrite.appEnhancementEnabled = appEnhancementEnabled
 
-            settings.meeting.enabled = true
             settings.meeting.asrSelectionID = asrSelection
             settings.meeting.summaryModelSelectionID = llmSelection
         }
@@ -1000,7 +1033,7 @@ struct OnboardingSettingsView: View {
             stored: remoteASRConfigurations
         )
         guard configuration.isConfigured else {
-            return String(localized: "Not configured")
+            return localized("Not configured")
         }
 
         var lines = [AppLocalization.format("Configured model: %@", configuration.model)]
@@ -1020,7 +1053,7 @@ struct OnboardingSettingsView: View {
             stored: remoteLLMConfigurations
         )
         guard configuration.isConfigured else {
-            return String(localized: "Not configured")
+            return localized("Not configured")
         }
         return AppLocalization.format("Configured model: %@", configuration.model)
     }
@@ -1048,7 +1081,7 @@ struct OnboardingSettingsView: View {
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
         panel.directoryURL = ModelStorageDirectoryManager.resolvedRootURL()
-        panel.prompt = String(localized: "Choose")
+        panel.prompt = localized("Choose")
 
         guard panel.runModal() == .OK, let selectedURL = panel.url else { return }
         do {
@@ -1056,8 +1089,7 @@ struct OnboardingSettingsView: View {
             modelStorageSelectionError = nil
             refreshModelStorageDisplayPath()
         } catch {
-            let format = NSLocalizedString("Failed to update model storage path: %@", comment: "")
-            modelStorageSelectionError = String(format: format, error.localizedDescription)
+            modelStorageSelectionError = AppLocalization.format("Failed to update model storage path: %@", error.localizedDescription)
         }
     }
 
@@ -1154,9 +1186,9 @@ struct OnboardingSettingsView: View {
         do {
             let text = try ConfigurationTransferManager.exportJSONString()
             try text.write(to: url, atomically: true, encoding: .utf8)
-            configurationTransferMessage = String(localized: "Configuration exported successfully.")
+            configurationTransferMessage = localized("Configuration exported successfully.")
         } catch {
-            configurationTransferMessage = String(format: NSLocalizedString("Configuration export failed: %@", comment: ""), error.localizedDescription)
+            configurationTransferMessage = AppLocalization.format("Configuration export failed: %@", error.localizedDescription)
         }
     }
 
@@ -1181,9 +1213,43 @@ struct OnboardingSettingsView: View {
             NotificationCenter.default.post(name: .voxtOverlayAppearanceDidChange, object: nil)
             refreshInputDevices()
             refreshModelStorageDisplayPath()
-            configurationTransferMessage = String(localized: "Configuration imported successfully. Included dictionary data was restored, and sensitive fields need to be filled in again if required.")
+            configurationTransferMessage = localized("Configuration imported successfully. Included dictionary data was restored, and sensitive fields need to be filled in again if required.")
         } catch {
-            configurationTransferMessage = String(format: NSLocalizedString("Configuration import failed: %@", comment: ""), error.localizedDescription)
+            configurationTransferMessage = AppLocalization.format("Configuration import failed: %@", error.localizedDescription)
+        }
+    }
+
+    private func syncLocalizedOnboardingSamples() {
+        let localeIdentifier = interfaceLanguage.localeIdentifier
+        let englishIdentifier = AppInterfaceLanguage.english.localeIdentifier
+        let chineseIdentifier = AppInterfaceLanguage.chineseSimplified.localeIdentifier
+        let japaneseIdentifier = AppInterfaceLanguage.japanese.localeIdentifier
+
+        let translationDefaults = Set([
+            OnboardingTranslationTest.defaultInput(localeIdentifier: englishIdentifier),
+            OnboardingTranslationTest.defaultInput(localeIdentifier: chineseIdentifier),
+            OnboardingTranslationTest.defaultInput(localeIdentifier: japaneseIdentifier)
+        ])
+        if translationDefaults.contains(translationTestInput) {
+            translationTestInput = OnboardingTranslationTest.defaultInput(localeIdentifier: localeIdentifier)
+        }
+
+        let rewritePromptDefaults = Set([
+            OnboardingRewriteTest.defaultPrompt(localeIdentifier: englishIdentifier),
+            OnboardingRewriteTest.defaultPrompt(localeIdentifier: chineseIdentifier),
+            OnboardingRewriteTest.defaultPrompt(localeIdentifier: japaneseIdentifier)
+        ])
+        if rewritePromptDefaults.contains(rewriteTestPrompt) {
+            rewriteTestPrompt = OnboardingRewriteTest.defaultPrompt(localeIdentifier: localeIdentifier)
+        }
+
+        let rewriteSourceDefaults = Set([
+            OnboardingRewriteTest.defaultSourceText(localeIdentifier: englishIdentifier),
+            OnboardingRewriteTest.defaultSourceText(localeIdentifier: chineseIdentifier),
+            OnboardingRewriteTest.defaultSourceText(localeIdentifier: japaneseIdentifier)
+        ])
+        if rewriteSourceDefaults.contains(rewriteTestSourceText) {
+            rewriteTestSourceText = OnboardingRewriteTest.defaultSourceText(localeIdentifier: localeIdentifier)
         }
     }
 }

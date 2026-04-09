@@ -6,6 +6,7 @@ private func localized(_ key: String) -> String {
 
 struct FeatureModelSelectorDialog: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppPreferenceKey.interfaceLanguage) private var interfaceLanguageRaw = AppInterfaceLanguage.system.rawValue
 
     let title: String
     let entries: [FeatureModelSelectorEntry]
@@ -15,27 +16,23 @@ struct FeatureModelSelectorDialog: View {
     @State private var selectedTags = Set<String>()
 
     private var statusFilterTags: Set<String> {
-        Set<String>([localized("Installed"), localized("Configured"), localized("In Use")])
+        FeatureModelSelectorFiltering.statusFilterTags
     }
 
     private var defaultSelectedTags: Set<String> {
-        Set<String>([localized("Installed"), localized("Configured")]).intersection(Set<String>(availableTags))
+        FeatureModelSelectorFiltering.defaultSelectedTags(entries: entries)
     }
 
     private var locationScopedEntriesForTags: [FeatureModelSelectorEntry] {
-        if selectedTags.contains(localized("Local")) {
-            return entries.filter { $0.filterTags.contains(localized("Local")) }
-        }
-        if selectedTags.contains(localized("Remote")) {
-            return entries.filter { $0.filterTags.contains(localized("Remote")) }
-        }
-        return entries
+        FeatureModelSelectorFiltering.locationScopedEntries(entries: entries, selectedTags: selectedTags)
     }
 
     private var availableTags: [String] {
-        let locationTags = Set<String>(entries.flatMap(\.filterTags)).intersection(FeatureSelectorTagPriority.locationTags)
-        let tagSet = locationTags.union(Set<String>(locationScopedEntriesForTags.flatMap(\.filterTags)))
-        return FeatureSelectorTagPriority.priority.compactMap { tagSet.contains($0) ? $0 : nil }
+        FeatureModelSelectorFiltering.availableTags(
+            entries: entries,
+            selectedTags: selectedTags,
+            locationScopedEntries: locationScopedEntriesForTags
+        )
     }
 
     private var availableTagGroups: [[String]] {
@@ -54,32 +51,7 @@ struct FeatureModelSelectorDialog: View {
     }
 
     private var filteredEntries: [FeatureModelSelectorEntry] {
-        let matchingEntries: [FeatureModelSelectorEntry]
-        if selectedTags.isEmpty {
-            matchingEntries = entries
-        } else {
-            let selectedStatusTags = selectedTags.intersection(statusFilterTags)
-            let requiredTags = selectedTags.subtracting(selectedStatusTags)
-            matchingEntries = entries.filter { entry in
-                let entryTags = Set(entry.filterTags)
-                guard requiredTags.isSubset(of: entryTags) else { return false }
-                if selectedStatusTags.isEmpty {
-                    return true
-                }
-                return !entryTags.intersection(selectedStatusTags).isEmpty
-            }
-        }
-
-        return matchingEntries.enumerated()
-            .sorted { lhs, rhs in
-                let lhsInUse = !lhs.element.usageLocations.isEmpty
-                let rhsInUse = !rhs.element.usageLocations.isEmpty
-                if lhsInUse != rhsInUse {
-                    return lhsInUse && !rhsInUse
-                }
-                return lhs.offset < rhs.offset
-            }
-            .map(\.element)
+        FeatureModelSelectorFiltering.filteredEntries(entries: entries, selectedTags: selectedTags)
     }
 
     private var selectedEntry: FeatureModelSelectorEntry? {
@@ -176,23 +148,105 @@ struct FeatureModelSelectorDialog: View {
         .frame(width: 640)
         .background(SettingsUIStyle.groupedFillColor)
         .onAppear(perform: initializeDefaultTags)
+        .id(interfaceLanguageRaw)
     }
 
     private func toggleTag(_ tag: String) {
-        if selectedTags.contains(tag) {
-            selectedTags.remove(tag)
-        } else {
-            if FeatureSelectorTagPriority.exclusiveSelectionTags.contains(tag) {
-                selectedTags.subtract(FeatureSelectorTagPriority.exclusiveSelectionTags)
-            }
-            selectedTags.insert(tag)
-        }
-        selectedTags = selectedTags.intersection(Set<String>(availableTags))
+        selectedTags = FeatureModelSelectorFiltering.toggledTags(
+            current: selectedTags,
+            tag: tag,
+            entries: entries
+        )
     }
 
     private func initializeDefaultTags() {
         guard selectedTags.isEmpty else { return }
         selectedTags = defaultSelectedTags
+    }
+}
+
+enum FeatureModelSelectorFiltering {
+    static var statusFilterTags: Set<String> {
+        Set<String>([localized("Installed"), localized("Configured"), localized("In Use")])
+    }
+
+    static func defaultSelectedTags(entries: [FeatureModelSelectorEntry]) -> Set<String> {
+        Set<String>([localized("Installed"), localized("Configured")]).intersection(
+            Set<String>(availableTags(entries: entries, selectedTags: []))
+        )
+    }
+
+    static func locationScopedEntries(
+        entries: [FeatureModelSelectorEntry],
+        selectedTags: Set<String>
+    ) -> [FeatureModelSelectorEntry] {
+        if selectedTags.contains(localized("Local")) {
+            return entries.filter { $0.filterTags.contains(localized("Local")) }
+        }
+        if selectedTags.contains(localized("Remote")) {
+            return entries.filter { $0.filterTags.contains(localized("Remote")) }
+        }
+        return entries
+    }
+
+    static func availableTags(
+        entries: [FeatureModelSelectorEntry],
+        selectedTags: Set<String>,
+        locationScopedEntries overrideEntries: [FeatureModelSelectorEntry]? = nil
+    ) -> [String] {
+        let scopedEntries = overrideEntries ?? self.locationScopedEntries(entries: entries, selectedTags: selectedTags)
+        let locationTags = Set<String>(entries.flatMap(\.filterTags)).intersection(FeatureSelectorTagPriority.locationTags)
+        let tagSet = locationTags.union(Set<String>(scopedEntries.flatMap(\.filterTags)))
+        return FeatureSelectorTagPriority.priority.compactMap { tagSet.contains($0) ? $0 : nil }
+    }
+
+    static func filteredEntries(
+        entries: [FeatureModelSelectorEntry],
+        selectedTags: Set<String>
+    ) -> [FeatureModelSelectorEntry] {
+        let matchingEntries: [FeatureModelSelectorEntry]
+        if selectedTags.isEmpty {
+            matchingEntries = entries
+        } else {
+            let selectedStatusTags = selectedTags.intersection(statusFilterTags)
+            let requiredTags = selectedTags.subtracting(selectedStatusTags)
+            matchingEntries = entries.filter { entry in
+                let entryTags = Set(entry.filterTags)
+                guard requiredTags.isSubset(of: entryTags) else { return false }
+                if selectedStatusTags.isEmpty {
+                    return true
+                }
+                return !entryTags.intersection(selectedStatusTags).isEmpty
+            }
+        }
+
+        return matchingEntries.enumerated()
+            .sorted { lhs, rhs in
+                let lhsInUse = !lhs.element.usageLocations.isEmpty
+                let rhsInUse = !rhs.element.usageLocations.isEmpty
+                if lhsInUse != rhsInUse {
+                    return lhsInUse && !rhsInUse
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
+    }
+
+    static func toggledTags(
+        current: Set<String>,
+        tag: String,
+        entries: [FeatureModelSelectorEntry]
+    ) -> Set<String> {
+        var next = current
+        if next.contains(tag) {
+            next.remove(tag)
+        } else {
+            if FeatureSelectorTagPriority.exclusiveSelectionTags.contains(tag) {
+                next.subtract(FeatureSelectorTagPriority.exclusiveSelectionTags)
+            }
+            next.insert(tag)
+        }
+        return next.intersection(Set<String>(availableTags(entries: entries, selectedTags: next)))
     }
 }
 

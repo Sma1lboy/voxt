@@ -144,6 +144,10 @@ struct SettingsView: View {
         .onChange(of: featureSettingsRaw) { _, _ in
             refreshPermissionBadge()
             refreshModelConfigurationBadge()
+            if !meetingEnabled, selectedTab == .feature, selectedFeatureTab == .meeting {
+                navigationRequest = nil
+                selectedFeatureTab = .transcription
+            }
         }
     }
 
@@ -169,6 +173,7 @@ struct SettingsView: View {
                     }
                 },
                 appEnhancementEnabled: appEnhancementEnabled,
+                meetingEnabled: meetingEnabled,
                 hasMissingPermissions: hasMissingPermissions,
                 hasNoAvailableMicrophones: hasNoAvailableMicrophones,
                 hasMissingModelConfigurationIssues: !missingModelConfigurationIssues.isEmpty,
@@ -230,6 +235,14 @@ struct SettingsView: View {
 
     private var interfaceLanguage: AppInterfaceLanguage {
         AppInterfaceLanguage(rawValue: interfaceLanguageRaw) ?? .system
+    }
+
+    private var featureSettings: FeatureSettings {
+        FeatureSettingsStore.load(defaults: .standard)
+    }
+
+    private var meetingEnabled: Bool {
+        featureSettings.meeting.enabled
     }
 
     private var onboardingStepBinding: Binding<OnboardingStep> {
@@ -432,7 +445,11 @@ struct SettingsView: View {
     private func applyNavigationTarget(_ target: SettingsNavigationTarget) {
         navigationRequest = SettingsNavigationRequest(target: target)
         if let featureTab = target.featureTab {
-            selectedFeatureTab = featureTab
+            if FeatureSettingsTab.visibleTabs(appEnhancementEnabled: appEnhancementEnabled, meetingEnabled: meetingEnabled).contains(featureTab) {
+                selectedFeatureTab = featureTab
+            } else {
+                selectedFeatureTab = .transcription
+            }
         }
         if target.tab == .feature {
             sidebarMode = .feature
@@ -447,7 +464,7 @@ struct SettingsView: View {
         if tab == .feature {
             selectedTab = .feature
             sidebarMode = .feature
-            if !FeatureSettingsTab.visibleTabs(appEnhancementEnabled: appEnhancementEnabled).contains(selectedFeatureTab) {
+            if !FeatureSettingsTab.visibleTabs(appEnhancementEnabled: appEnhancementEnabled, meetingEnabled: meetingEnabled).contains(selectedFeatureTab) {
                 selectedFeatureTab = .transcription
             }
             return
@@ -472,6 +489,7 @@ private struct SettingsSidebar: View {
     let onSelectFeatureTab: (FeatureSettingsTab) -> Void
     let onReturnToRoot: () -> Void
     let appEnhancementEnabled: Bool
+    let meetingEnabled: Bool
     let hasMissingPermissions: Bool
     let hasNoAvailableMicrophones: Bool
     let hasMissingModelConfigurationIssues: Bool
@@ -583,15 +601,10 @@ private struct SettingsSidebar: View {
 
             if sidebarMode == .feature {
                 Button(action: onReturnToRoot) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text(settingsLocalized("Back"))
-                            .font(.system(size: 12, weight: .semibold))
-                        Spacer(minLength: 0)
-                    }
+                    Label(settingsLocalized("Back"), systemImage: "chevron.left")
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(SettingsStatusButtonStyle(tint: .secondary))
+                .buttonStyle(SettingsPillButtonStyle())
             }
 
         }
@@ -607,7 +620,7 @@ private struct SettingsSidebar: View {
     }
 
     private var visibleFeatureTabs: [FeatureSettingsTab] {
-        FeatureSettingsTab.visibleTabs(appEnhancementEnabled: appEnhancementEnabled)
+        FeatureSettingsTab.visibleTabs(appEnhancementEnabled: appEnhancementEnabled, meetingEnabled: meetingEnabled)
     }
 }
 

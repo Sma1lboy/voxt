@@ -311,7 +311,7 @@ enum FeatureSettingsStore {
                 appEnhancementEnabled: defaults.object(forKey: AppPreferenceKey.appEnhancementEnabled) as? Bool ?? false
             ),
             meeting: MeetingFeatureSettings(
-                enabled: true,
+                enabled: defaults.object(forKey: AppPreferenceKey.meetingNotesBetaEnabled) as? Bool ?? false,
                 asrSelectionID: transcriptionASR,
                 summaryModelSelectionID: meetingSummary,
                 summaryPrompt: defaults.string(forKey: AppPreferenceKey.meetingSummaryPromptTemplate) ?? AppPreferenceKey.defaultMeetingSummaryPrompt,
@@ -440,7 +440,7 @@ enum FeatureSettingsStore {
     }
 
     private static func syncLegacyMeeting(_ settings: MeetingFeatureSettings, defaults: UserDefaults) {
-        defaults.set(true, forKey: AppPreferenceKey.meetingNotesBetaEnabled)
+        defaults.set(settings.enabled, forKey: AppPreferenceKey.meetingNotesBetaEnabled)
         defaults.set(settings.summaryPrompt, forKey: AppPreferenceKey.meetingSummaryPromptTemplate)
         defaults.set(settings.summaryAutoGenerate, forKey: AppPreferenceKey.meetingSummaryAutoGenerate)
         defaults.set(settings.realtimeTranslateEnabled, forKey: AppPreferenceKey.meetingRealtimeTranslateEnabled)
@@ -472,7 +472,7 @@ enum FeatureSettingsStore {
                 appEnhancementEnabled: settings.rewrite.appEnhancementEnabled
             ),
             meeting: MeetingFeatureSettings(
-                enabled: true,
+                enabled: settings.meeting.enabled,
                 asrSelectionID: settings.meeting.asrSelectionID.asrSelection == nil ? fallback.meeting.asrSelectionID : settings.meeting.asrSelectionID,
                 summaryModelSelectionID: settings.meeting.summaryModelSelectionID.textSelection == nil ? fallback.meeting.summaryModelSelectionID : settings.meeting.summaryModelSelectionID,
                 summaryPrompt: sanitizedPrompt(settings.meeting.summaryPrompt, fallback: AppPreferenceKey.defaultMeetingSummaryPrompt),

@@ -77,6 +77,15 @@ struct FeatureSettingsView: View {
                     isOn: transcriptionLLMEnabledBinding
                 )
 
+                FeatureToggleRow(
+                    title: localized("Enable Meeting"),
+                    detail: localized("Turn on the dedicated meeting workflow, shortcut, overlay, and meeting-specific model settings."),
+                    isOn: binding(
+                        get: { featureSettings.meeting.enabled },
+                        set: { featureSettings.meeting.enabled = $0 }
+                    )
+                )
+
                 if featureSettings.transcription.llmEnabled {
                     FeatureSettingSection(title: localized("Text Enhancement"), detail: localized("Only configured and installed models can be selected here.")) {
                         FeatureSelectorRow(

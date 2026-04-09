@@ -2,6 +2,14 @@ import XCTest
 @testable import Voxt
 
 final class FeatureSettingsStoreTests: XCTestCase {
+    func testDeriveFromLegacyDefaultsMeetingToDisabledWhenUnset() {
+        let defaults = TestDoubles.makeUserDefaults()
+
+        let settings = FeatureSettingsStore.deriveFromLegacy(defaults: defaults)
+
+        XCTAssertFalse(settings.meeting.enabled)
+    }
+
     func testDeriveFromLegacyBuildsFeatureSettings() {
         let defaults = TestDoubles.makeUserDefaults()
         defaults.set(TranscriptionEngine.whisperKit.rawValue, forKey: AppPreferenceKey.transcriptionEngine)
@@ -110,5 +118,85 @@ final class FeatureSettingsStoreTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: AppPreferenceKey.meetingSummaryModelSelection), "remote-llm:\(RemoteLLMProvider.deepseek.rawValue)")
         XCTAssertEqual(defaults.string(forKey: AppPreferenceKey.meetingSummaryPromptTemplate), "summary prompt")
         XCTAssertTrue(defaults.bool(forKey: AppPreferenceKey.meetingRealtimeTranslateEnabled))
+    }
+
+    func testPrepareLegacyMeetingMirrorsDisabledMeetingState() {
+        let defaults = TestDoubles.makeUserDefaults()
+        let settings = FeatureSettings(
+            transcription: .init(
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                llmEnabled: false,
+                llmSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                prompt: AppPreferenceKey.defaultEnhancementPrompt
+            ),
+            translation: .init(
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                modelSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                targetLanguageRawValue: TranslationTargetLanguage.english.rawValue,
+                prompt: AppPreferenceKey.defaultTranslationPrompt,
+                replaceSelectedText: true
+            ),
+            rewrite: .init(
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                llmSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                prompt: AppPreferenceKey.defaultRewritePrompt,
+                appEnhancementEnabled: false
+            ),
+            meeting: .init(
+                enabled: false,
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                summaryModelSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                summaryPrompt: AppPreferenceKey.defaultMeetingSummaryPrompt,
+                summaryAutoGenerate: true,
+                realtimeTranslateEnabled: false,
+                realtimeTargetLanguageRawValue: "",
+                showOverlayInScreenShare: false
+            )
+        )
+
+        FeatureSettingsStore.prepareLegacyMeeting(from: settings, defaults: defaults)
+
+        XCTAssertFalse(defaults.bool(forKey: AppPreferenceKey.meetingNotesBetaEnabled))
+    }
+
+    func testSavePreservesDisabledMeetingState() {
+        let defaults = TestDoubles.makeUserDefaults()
+        let settings = FeatureSettings(
+            transcription: .init(
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                llmEnabled: false,
+                llmSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                prompt: AppPreferenceKey.defaultEnhancementPrompt
+            ),
+            translation: .init(
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                modelSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                targetLanguageRawValue: TranslationTargetLanguage.english.rawValue,
+                prompt: AppPreferenceKey.defaultTranslationPrompt,
+                replaceSelectedText: true
+            ),
+            rewrite: .init(
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                llmSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                prompt: AppPreferenceKey.defaultRewritePrompt,
+                appEnhancementEnabled: false
+            ),
+            meeting: .init(
+                enabled: false,
+                asrSelectionID: .mlx(MLXModelManager.defaultModelRepo),
+                summaryModelSelectionID: .localLLM(CustomLLMModelManager.defaultModelRepo),
+                summaryPrompt: AppPreferenceKey.defaultMeetingSummaryPrompt,
+                summaryAutoGenerate: true,
+                realtimeTranslateEnabled: false,
+                realtimeTargetLanguageRawValue: "",
+                showOverlayInScreenShare: false
+            )
+        )
+
+        FeatureSettingsStore.save(settings, defaults: defaults)
+
+        let reloaded = FeatureSettingsStore.load(defaults: defaults)
+        XCTAssertFalse(reloaded.meeting.enabled)
+        XCTAssertFalse(defaults.bool(forKey: AppPreferenceKey.meetingNotesBetaEnabled))
     }
 }
