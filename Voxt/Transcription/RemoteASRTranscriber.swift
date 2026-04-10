@@ -1205,7 +1205,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         ws.resume()
         defer {
             ws.cancel(with: .goingAway, reason: nil)
-            _ = managedSocket.session
+            managedSocket.session.invalidateAndCancel()
         }
 
         let reqID = UUID().uuidString.lowercased()
@@ -2571,6 +2571,7 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         if let context = doubaoStreamingContext {
             context.isClosed = true
             context.ws.cancel(with: .normalClosure, reason: nil)
+            context.session.invalidateAndCancel()
         }
         doubaoStreamingContext = nil
         stopDoubaoAudioCapture()
@@ -2580,11 +2581,13 @@ class RemoteASRTranscriber: NSObject, ObservableObject, TranscriberProtocol {
         if let context = aliyunStreamingContext {
             context.isClosed = true
             context.ws.cancel(with: .normalClosure, reason: nil)
+            context.session.invalidateAndCancel()
         }
         aliyunStreamingContext = nil
         if let context = aliyunQwenStreamingContext {
             context.isClosed = true
             context.ws.cancel(with: .normalClosure, reason: nil)
+            context.session.invalidateAndCancel()
         }
         aliyunQwenStreamingContext = nil
         stopAliyunAudioCapture()

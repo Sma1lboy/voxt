@@ -6,6 +6,11 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-04-10
+
+### Fixed
+- Fixed remote ASR realtime sessions so Doubao and Aliyun connections release network resources more cleanly during long-running use.
+
 ## [1.9.0] - 2026-04-09
 
 ### Added
