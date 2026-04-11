@@ -986,6 +986,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleTranslationHotkeyDown() {
+        guard !HotkeyPreference.loadTranslation().isNone else {
+            VoxtLog.hotkey("Translation hotkey ignored: no shortcut assigned.")
+            return
+        }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         VoxtLog.hotkey(
             "Hotkey callback translationDown. mode=\(triggerMode.rawValue), isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputMode == .translation ? "translation" : "transcription"), pendingStart=\(pendingTranscriptionStartTask != nil)",
@@ -1030,6 +1034,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleTranslationHotkeyUp() {
+        guard !HotkeyPreference.loadTranslation().isNone else { return }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         guard triggerMode == .longPress else { return }
         VoxtLog.hotkey(
@@ -1051,6 +1056,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleRewriteHotkeyDown() {
+        guard !HotkeyPreference.loadRewrite().isNone else {
+            VoxtLog.hotkey("Rewrite hotkey ignored: no shortcut assigned.")
+            return
+        }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         VoxtLog.hotkey(
             "Hotkey callback rewriteDown. mode=\(triggerMode.rawValue), isSessionActive=\(isSessionActive), sessionOutput=\(sessionOutputModeLabel), pendingStart=\(pendingTranscriptionStartTask != nil)",
@@ -1073,6 +1082,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleRewriteHotkeyUp() {
+        guard !HotkeyPreference.loadRewrite().isNone else { return }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         guard triggerMode == .longPress else { return }
         VoxtLog.hotkey(

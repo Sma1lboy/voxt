@@ -245,125 +245,109 @@ struct ModelSettingsView: View {
             .map(\.element)
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            modelTabHeader
-
-            if !availableTags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(availableTagGroups.enumerated()), id: \.offset) { index, group in
-                            HStack(spacing: 8) {
-                                ForEach(group, id: \.self) { tag in
-                                    ModelTagChip(
-                                        title: tag,
-                                        isSelected: selectedTags.contains(tag),
-                                        action: { toggleTag(tag) }
-                                    )
-                                }
-                            }
-
-                            if index < availableTagGroups.count - 1 {
-                                Rectangle()
-                                    .fill(SettingsUIStyle.subtleBorderColor.opacity(0.95))
-                                    .frame(width: 1, height: 20)
-                                    .padding(.horizontal, 4)
+    @ViewBuilder
+    private var tagChipsBar: some View {
+        if !availableTags.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(availableTagGroups.enumerated()), id: \.offset) { index, group in
+                        HStack(spacing: 8) {
+                            ForEach(group, id: \.self) { tag in
+                                ModelTagChip(
+                                    title: tag,
+                                    isSelected: selectedTags.contains(tag),
+                                    action: { toggleTag(tag) }
+                                )
                             }
                         }
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
 
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    if filteredEntries.isEmpty {
-                        ModelEmptyStateView()
-                    } else {
-                        ForEach(filteredEntries) { entry in
-                            ModelCatalogRow(entry: entry)
+                        if index < availableTagGroups.count - 1 {
+                            Rectangle()
+                                .fill(SettingsUIStyle.subtleBorderColor.opacity(0.95))
+                                .frame(width: 1, height: 20)
+                                .padding(.horizontal, 4)
                         }
                     }
                 }
                 .padding(.vertical, 2)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 430)
+        }
+    }
 
+    @ViewBuilder
+    private var catalogList: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                if filteredEntries.isEmpty {
+                    ModelEmptyStateView()
+                } else {
+                    ForEach(filteredEntries) { entry in
+                        ModelCatalogRow(entry: entry)
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 430)
+    }
+
+    private func handleModelRepoChange(_ newValue: String) {
+        let canonicalRepo = MLXModelManager.canonicalModelRepo(newValue)
+        if canonicalRepo != newValue {
+            modelRepo = canonicalRepo
+            return
+        }
+        mlxModelManager.updateModel(repo: canonicalRepo)
+    }
+
+    private func handleWhisperModelIDChange(_ newValue: String) {
+        let canonicalModelID = WhisperKitModelManager.canonicalModelID(newValue)
+        if canonicalModelID != newValue {
+            whisperModelID = canonicalModelID
+            return
+        }
+        whisperModelManager.updateModel(id: canonicalModelID)
+    }
+
+    private func reloadWhisperIfNeeded() {
+        whisperModelManager.refreshResidencyPolicy()
+        guard selectedEngine == .whisperKit, whisperKeepResidentLoaded else { return }
+        Task { @MainActor in
+            whisperModelManager.beginActiveUse()
+            defer { whisperModelManager.endActiveUse() }
+            _ = try? await whisperModelManager.loadWhisper()
+        }
+    }
+
+    @ViewBuilder
+    private var bodyContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            modelTabHeader
+            tagChipsBar
+            catalogList
         }
         .onAppear(perform: handleOnAppear)
         .onAppear(perform: reloadCachedConfigurationState)
         .onAppear(perform: refreshModelStorageDisplayPath)
-        .onChange(of: modelRepo) { _, newValue in
-            let canonicalRepo = MLXModelManager.canonicalModelRepo(newValue)
-            if canonicalRepo != newValue {
-                modelRepo = canonicalRepo
-                return
-            }
-            mlxModelManager.updateModel(repo: canonicalRepo)
-        }
-        .onChange(of: whisperModelID) { _, newValue in
-            let canonicalModelID = WhisperKitModelManager.canonicalModelID(newValue)
-            if canonicalModelID != newValue {
-                whisperModelID = canonicalModelID
-                return
-            }
-            whisperModelManager.updateModel(id: canonicalModelID)
-        }
-        .onChange(of: whisperKeepResidentLoaded) { _, _ in
-            whisperModelManager.refreshResidencyPolicy()
-            guard selectedEngine == .whisperKit, whisperKeepResidentLoaded else { return }
-            Task { @MainActor in
-                whisperModelManager.beginActiveUse()
-                defer { whisperModelManager.endActiveUse() }
-                _ = try? await whisperModelManager.loadWhisper()
-            }
-        }
-        .onChange(of: engineRaw) { _, _ in
-            whisperModelManager.refreshResidencyPolicy()
-            guard selectedEngine == .whisperKit, whisperKeepResidentLoaded else { return }
-            Task { @MainActor in
-                whisperModelManager.beginActiveUse()
-                defer { whisperModelManager.endActiveUse() }
-                _ = try? await whisperModelManager.loadWhisper()
-            }
-        }
-        .onChange(of: customLLMRepo) { _, newValue in
-            customLLMManager.updateModel(repo: newValue)
-            ensureTranslationModelSelectionConsistency()
-            ensureRewriteModelSelectionConsistency()
-        }
-        .onChange(of: translationModelProviderRaw) { _, _ in
-            syncTranslationFallbackProvider()
-            ensureTranslationModelSelectionConsistency()
-        }
-        .onChange(of: rewriteModelProviderRaw) { _, _ in
-            ensureRewriteModelSelectionConsistency()
-        }
-        .onChange(of: remoteLLMProviderConfigurationsRaw) { _, _ in
-            cachedRemoteLLMConfigurations = RemoteModelConfigurationStore.loadConfigurations(from: remoteLLMProviderConfigurationsRaw)
-            ensureTranslationModelSelectionConsistency()
-            ensureRewriteModelSelectionConsistency()
-        }
-        .onChange(of: remoteASRProviderConfigurationsRaw) { _, _ in
-            cachedRemoteASRConfigurations = RemoteModelConfigurationStore.loadConfigurations(from: remoteASRProviderConfigurationsRaw)
-        }
-        .onChange(of: useHfMirror) { _, _ in
-            updateMirrorSetting()
-        }
-        .onChange(of: modelStorageRootPath) { _, _ in
-            refreshModelStorageDisplayPath()
-        }
-        .onChange(of: featureSettingsRaw) { _, _ in
-            cachedFeatureSettings = FeatureSettingsStore.load(defaults: .standard)
-            pruneSelectedTags()
-        }
-        .onChange(of: catalogTab) { _, _ in
-            pruneSelectedTags()
-        }
-        .onChange(of: selectedTags) { _, _ in
-            pruneSelectedTags()
-        }
+        .onChange(of: modelRepo) { _, newValue in handleModelRepoChange(newValue) }
+        .onChange(of: whisperModelID) { _, newValue in handleWhisperModelIDChange(newValue) }
+        .onChange(of: whisperKeepResidentLoaded) { _, _ in reloadWhisperIfNeeded() }
+        .onChange(of: engineRaw) { _, _ in reloadWhisperIfNeeded() }
+    }
+
+    var body: some View {
+        bodyContent
+        .onChange(of: customLLMRepo) { _, newValue in customLLMManager.updateModel(repo: newValue); ensureTranslationModelSelectionConsistency(); ensureRewriteModelSelectionConsistency() }
+        .onChange(of: translationModelProviderRaw) { _, _ in syncTranslationFallbackProvider(); ensureTranslationModelSelectionConsistency() }
+        .onChange(of: rewriteModelProviderRaw) { _, _ in ensureRewriteModelSelectionConsistency() }
+        .onChange(of: remoteLLMProviderConfigurationsRaw) { _, _ in cachedRemoteLLMConfigurations = RemoteModelConfigurationStore.loadConfigurations(from: remoteLLMProviderConfigurationsRaw); ensureTranslationModelSelectionConsistency(); ensureRewriteModelSelectionConsistency() }
+        .onChange(of: remoteASRProviderConfigurationsRaw) { _, _ in cachedRemoteASRConfigurations = RemoteModelConfigurationStore.loadConfigurations(from: remoteASRProviderConfigurationsRaw) }
+        .onChange(of: useHfMirror) { _, _ in updateMirrorSetting() }
+        .onChange(of: modelStorageRootPath) { _, _ in refreshModelStorageDisplayPath() }
+        .onChange(of: featureSettingsRaw) { _, _ in cachedFeatureSettings = FeatureSettingsStore.load(defaults: .standard); pruneSelectedTags() }
+        .onChange(of: catalogTab) { _, _ in pruneSelectedTags() }
+        .onChange(of: selectedTags) { _, _ in pruneSelectedTags() }
         .onReceive(modelStateRefreshTimer) { _ in
             guard shouldPollModelState else { return }
             refreshModelInstallStateIfNeeded()
