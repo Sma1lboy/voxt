@@ -102,26 +102,6 @@ struct SettingsDialogActionRow<Leading: View, Trailing: View>: View {
     }
 }
 
-enum SettingsMenuInteraction {
-    @discardableResult
-    static func performSelection(for menuItem: NSMenuItem?) -> Bool {
-        guard
-            let menuItem,
-            let menu = menuItem.menu
-        else {
-            return false
-        }
-
-        let index = menu.index(of: menuItem)
-        guard index >= 0 else {
-            return false
-        }
-
-        menu.performActionForItem(at: index)
-        menu.cancelTracking()
-        return true
-    }
-}
 
 private struct SettingsNativeMenuPicker<Value: Hashable>: NSViewRepresentable {
     @Binding var selection: Value
@@ -216,7 +196,6 @@ private final class SettingsMenuHostView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         popupMenu.autoenablesItems = false
-        popupMenu.showsStateColumn = false
 
         titleField.translatesAutoresizingMaskIntoConstraints = false
         titleField.font = .systemFont(ofSize: 13, weight: .medium)
@@ -269,11 +248,6 @@ private final class SettingsMenuHostView: NSView {
                 let item = NSMenuItem(title: title, action: #selector(selectMenuItem(_:)), keyEquivalent: "")
                 item.target = self
                 item.tag = index
-                item.view = SettingsPopupMenuItemView(
-                    title: title,
-                    width: menuWidth,
-                    isSelected: index == selectedIndex
-                )
                 popupMenu.addItem(item)
             }
             currentMenuWidth = menuWidth
@@ -281,12 +255,7 @@ private final class SettingsMenuHostView: NSView {
 
         self.selectedIndex = selectedIndex
         for item in popupMenu.items {
-            let isSelected = item.tag == selectedIndex
-            (item.view as? SettingsPopupMenuItemView)?.update(
-                title: item.title,
-                width: menuWidth,
-                isSelected: isSelected
-            )
+            item.state = item.tag == selectedIndex ? .on : .off
         }
 
         popupMenu.minimumWidth = menuWidth
@@ -295,10 +264,7 @@ private final class SettingsMenuHostView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         guard !popupMenu.items.isEmpty else { return }
-        let selectedItem = selectedIndex.flatMap { index in
-            popupMenu.items.first(where: { $0.tag == index })
-        }
-        _ = popupMenu.popUp(positioning: selectedItem, at: NSPoint(x: 0, y: bounds.height + 8), in: self)
+        _ = popupMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height + 4), in: self)
     }
 
     @objc
@@ -307,93 +273,3 @@ private final class SettingsMenuHostView: NSView {
     }
 }
 
-private final class SettingsPopupMenuItemView: NSView {
-    private let checkView = NSImageView()
-    private let titleField = NSTextField(labelWithString: "")
-    private var itemWidth: CGFloat
-    private var isSelected: Bool
-
-    override var isFlipped: Bool {
-        true
-    }
-
-    init(title: String, width: CGFloat, isSelected: Bool) {
-        self.itemWidth = width
-        self.isSelected = isSelected
-        super.init(frame: NSRect(x: 0, y: 0, width: width, height: 34))
-        wantsLayer = true
-
-        checkView.translatesAutoresizingMaskIntoConstraints = false
-        checkView.imageScaling = .scaleProportionallyDown
-
-        titleField.translatesAutoresizingMaskIntoConstraints = false
-        titleField.lineBreakMode = .byTruncatingTail
-        titleField.maximumNumberOfLines = 1
-        titleField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        addSubview(checkView)
-        addSubview(titleField)
-
-        NSLayoutConstraint.activate([
-            checkView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            checkView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            checkView.widthAnchor.constraint(equalToConstant: 12),
-            checkView.heightAnchor.constraint(equalToConstant: 12),
-            titleField.leadingAnchor.constraint(equalTo: checkView.trailingAnchor, constant: 10),
-            titleField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            titleField.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
-
-        update(title: title, width: width, isSelected: isSelected)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override var intrinsicContentSize: NSSize {
-        NSSize(width: itemWidth, height: 34)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let isHighlighted = enclosingMenuItem?.isHighlighted ?? false
-        if isHighlighted {
-            NSColor.controlAccentColor.setFill()
-            NSBezierPath(
-                roundedRect: bounds.insetBy(dx: 6, dy: 2),
-                xRadius: 10,
-                yRadius: 10
-            ).fill()
-        }
-        super.draw(dirtyRect)
-        applyAppearance(isHighlighted: isHighlighted)
-    }
-
-    func update(title: String, width: CGFloat, isSelected: Bool) {
-        itemWidth = width
-        self.isSelected = isSelected
-        frame = NSRect(x: 0, y: 0, width: width, height: 34)
-        invalidateIntrinsicContentSize()
-        titleField.stringValue = title
-        needsDisplay = true
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        guard SettingsMenuInteraction.performSelection(for: enclosingMenuItem) else {
-            super.mouseDown(with: event)
-            return
-        }
-    }
-
-    private func applyAppearance(isHighlighted: Bool) {
-        let textColor = isHighlighted ? NSColor.white : NSColor.labelColor
-        titleField.font = .systemFont(ofSize: 13, weight: isSelected ? .semibold : .medium)
-        titleField.textColor = textColor
-        checkView.image = isSelected
-            ? NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
-            : nil
-        checkView.contentTintColor = textColor
-    }
-}

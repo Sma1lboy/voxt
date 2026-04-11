@@ -154,6 +154,12 @@ struct HotkeyPreference {
         let keyCode: UInt16
         let modifiers: NSEvent.ModifierFlags
         let sidedModifiers: SidedModifierFlags
+
+        var isNone: Bool {
+            keyCode == HotkeyPreference.modifierOnlyKeyCode && modifiers.intersection(.hotkeyRelevant).isEmpty
+        }
+
+        static let none = Hotkey(keyCode: modifierOnlyKeyCode, modifiers: [], sidedModifiers: [])
     }
 
     static let modifierOnlyKeyCode: UInt16 = 0xFFFF
@@ -166,7 +172,7 @@ struct HotkeyPreference {
     static let defaultMeetingKeyCode: UInt16 = modifierOnlyKeyCode
     static let defaultMeetingModifiers: NSEvent.ModifierFlags = [.function, .option]
     static let defaultTriggerMode: TriggerMode = .tap
-    static let defaultDistinguishModifierSides = false
+    static let defaultDistinguishModifierSides = true
     static let defaultPreset: Preset = .fnCombo
 
     static func registerDefaults() {
@@ -293,7 +299,7 @@ struct HotkeyPreference {
             sidedModifiers: distinguishModifierSides ? hotkey.sidedModifiers : []
         )
         if hotkey.keyCode == modifierOnlyKeyCode {
-            return symbols.isEmpty ? "Unassigned" : symbols
+            return symbols.isEmpty ? String(localized: "None") : symbols
         }
         let key = keyCodeDisplayString(hotkey.keyCode)
         return symbols.isEmpty ? key : "\(symbols) \(key)"
