@@ -29,6 +29,7 @@ enum AppPreferenceKey {
     static let modelStorageRootPath = "modelStorageRootPath"
     static let modelStorageRootBookmark = "modelStorageRootBookmark"
     static let useHfMirror = "useHfMirror"
+    static let modelDownloadConcurrency = "modelDownloadConcurrency"
     static let hotkeyKeyCode = "hotkeyKeyCode"
     static let hotkeyModifiers = "hotkeyModifiers"
     static let hotkeySidedModifiers = "hotkeySidedModifiers"
