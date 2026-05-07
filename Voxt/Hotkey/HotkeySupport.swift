@@ -194,6 +194,12 @@ struct HotkeyPreference {
         let keyCode: UInt16
         let modifiers: NSEvent.ModifierFlags
         let sidedModifiers: SidedModifierFlags
+
+        var isNone: Bool {
+            keyCode == HotkeyPreference.modifierOnlyKeyCode && modifiers.intersection(.hotkeyRelevant).isEmpty
+        }
+
+        static let none = Hotkey(keyCode: modifierOnlyKeyCode, modifiers: [], sidedModifiers: [])
     }
 
     struct PresetHotkeys: Equatable {
@@ -217,7 +223,7 @@ struct HotkeyPreference {
     static let defaultCustomPasteKeyCode: UInt16 = UInt16(kVK_ANSI_V)
     static let defaultCustomPasteModifiers: NSEvent.ModifierFlags = [.control, .command]
     static let defaultTriggerMode: TriggerMode = .tap
-    static let defaultDistinguishModifierSides = false
+    static let defaultDistinguishModifierSides = true
     static let defaultPreset: Preset = .fnCombo
 
     static func registerDefaults() {
@@ -441,7 +447,7 @@ struct HotkeyPreference {
             sidedModifiers: distinguishModifierSides ? hotkey.sidedModifiers : []
         )
         if hotkey.keyCode == modifierOnlyKeyCode {
-            return symbols.isEmpty ? "Unassigned" : symbols
+            return symbols.isEmpty ? String(localized: "None") : symbols
         }
         let key = keyCodeDisplayString(hotkey.keyCode)
         return symbols.isEmpty ? key : "\(symbols) \(key)"

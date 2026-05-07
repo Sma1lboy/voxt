@@ -219,7 +219,8 @@ struct SettingsShortcutCaptureField: View {
     let isPendingConfirmation: Bool
     let distinguishModifierSides: Bool
     let onFocus: () -> Void
-    let onReset: () -> Void
+    var onReset: (() -> Void)? = nil
+    var onClear: (() -> Void)? = nil
     let onCancelPending: () -> Void
     let onConfirmPending: () -> Void
 
@@ -237,7 +238,7 @@ struct SettingsShortcutCaptureField: View {
                         : HotkeyPreference.displayString(for: hotkey, distinguishModifierSides: distinguishModifierSides)
                 )
                 .font(.system(.body, design: .rounded))
-                .foregroundStyle(.primary)
+                .foregroundStyle(hotkey.isNone ? Color.secondary : Color.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .minimumScaleFactor(0.9)
@@ -277,7 +278,14 @@ struct SettingsShortcutCaptureField: View {
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .fill(Color(nsColor: .controlAccentColor).opacity(0.12))
                         )
-                } else {
+                } else if let onClear, !hotkey.isNone {
+                    Button(action: onClear) {
+                        Image(systemName: "xmark")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(Text(featureSettingsLocalized("Clear shortcut")))
+                } else if let onReset {
                     Button(action: onReset) {
                         Image(systemName: "arrow.counterclockwise")
                             .foregroundStyle(.secondary)

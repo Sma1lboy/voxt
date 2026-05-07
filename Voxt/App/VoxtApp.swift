@@ -269,6 +269,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             AppPreferenceKey.whisperTimestampsEnabled: false,
             AppPreferenceKey.whisperRealtimeEnabled: true,
             AppPreferenceKey.whisperKeepResidentLoaded: true,
+            AppPreferenceKey.modelDownloadConcurrency: 3,
             AppPreferenceKey.translationFallbackModelProvider: TranslationModelProvider.customLLM.rawValue,
             AppPreferenceKey.rewriteCustomLLMModelRepo: CustomLLMModelManager.defaultModelRepo,
             AppPreferenceKey.remoteASRSelectedProvider: RemoteASRProvider.openAIWhisper.rawValue,

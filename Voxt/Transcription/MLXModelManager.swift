@@ -891,101 +891,105 @@ class MLXModelManager: ObservableObject {
             partial + max(entry.size ?? 0, 0)
         }, 1)
         let totalFiles = entries.count
-        var completedBytes: Int64 = 0
+        let aggregator = MLXParallelDownloadAggregator(totalBytes: totalBytes, totalFiles: totalFiles)
 
-        for (index, entry) in entries.enumerated() {
-            let completedFiles = index
-            let expectedEntryBytes = max(entry.size ?? 0, 0)
-            let progress = Progress(totalUnitCount: max(expectedEntryBytes, 1))
-            let baseCompletedBytes = completedBytes
-            let isLastEntry = index == totalFiles - 1
-            let beforeFraction = totalBytes > 0 ? Double(completedBytes) / Double(totalBytes) : 0
-            setDownloadingState(
-                progress: min(1, beforeFraction),
-                completed: min(completedBytes, totalBytes),
-                total: totalBytes,
-                currentFile: entry.path,
-                completedFiles: completedFiles,
-                totalFiles: totalFiles
-            )
-            VoxtLog.info("Download start: \(entry.path) (size=\(entry.size ?? -1))", verbose: true)
+        setDownloadingState(
+            progress: 0,
+            completed: 0,
+            total: totalBytes,
+            currentFile: nil,
+            completedFiles: 0,
+            totalFiles: totalFiles
+        )
 
-            let sampler = Task { [weak self] in
-                let startTime = Date()
-                while !Task.isCancelled {
-                    let effectiveInFlight = Self.inFlightBytes(
-                        progress: progress,
-                        expectedEntryBytes: expectedEntryBytes,
-                        startTime: startTime
+        let sampler = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(200))
+                if Task.isCancelled { return }
+                await MainActor.run {
+                    guard let self else { return }
+                    let snap = aggregator.snapshot(inFlightBytesProvider: Self.inFlightBytes)
+                    self.setDownloadingState(
+                        progress: snap.progress,
+                        completed: snap.completed,
+                        total: snap.total,
+                        currentFile: snap.currentFile,
+                        completedFiles: snap.completedFiles,
+                        totalFiles: snap.totalFiles
                     )
-                    let currentCompleted = min(baseCompletedBytes + effectiveInFlight, totalBytes)
-                    let fraction = totalBytes > 0 ? Double(currentCompleted) / Double(totalBytes) : 0
-                    let fileTransferLooksComplete = expectedEntryBytes > 0 && effectiveInFlight >= expectedEntryBytes
-                    let displayCompletedFiles = (isLastEntry && fileTransferLooksComplete) ? totalFiles : completedFiles
-                    let displayCurrentFile = (isLastEntry && fileTransferLooksComplete) ? nil : entry.path
-                    await MainActor.run {
-                        self?.setDownloadingState(
-                            progress: min(1, fraction),
-                            completed: currentCompleted,
-                            total: totalBytes,
-                            currentFile: displayCurrentFile,
-                            completedFiles: displayCompletedFiles,
-                            totalFiles: totalFiles
-                        )
-                    }
-                    try? await Task.sleep(for: .milliseconds(200))
                 }
             }
-            defer { sampler.cancel() }
+        }
+        defer { sampler.cancel() }
 
-            let destination = try MLXModelStorageSupport.destinationFileURL(for: entry.path, under: tempDir)
-            if MLXModelDownloadSupport.canReuseExistingDownload(
-                at: destination,
-                expectedSize: entry.size,
-                fileManager: .default
-            ) {
-                let delta = max(expectedEntryBytes, Int64((try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
-                completedBytes += max(delta, 0)
-                let finishedFiles = completedFiles + 1
-                let fraction = totalBytes > 0 ? Double(completedBytes) / Double(totalBytes) : 1
-                setDownloadingState(
-                    progress: min(1, fraction),
-                    completed: min(completedBytes, totalBytes),
-                    total: totalBytes,
-                    currentFile: nil,
-                    completedFiles: finishedFiles,
-                    totalFiles: totalFiles
-                )
-                VoxtLog.info("Download resume reused existing file: \(entry.path)", verbose: true)
-                continue
+        let configuredConcurrency = UserDefaults.standard.integer(forKey: AppPreferenceKey.modelDownloadConcurrency)
+        let resolvedConcurrency = configuredConcurrency > 0 ? configuredConcurrency : 3
+        let maxConcurrency = max(1, min(resolvedConcurrency, entries.count))
+        let repoDescription = repoID.description
+        VoxtLog.info("Parallel download: files=\(entries.count), concurrency=\(maxConcurrency)", verbose: true)
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            var iterator = entries.makeIterator()
+
+            func spawnNext() {
+                guard let entry = iterator.next() else { return }
+                let path = entry.path
+                let expectedSize = entry.size
+                let expectedEntryBytes = max(expectedSize ?? 0, 0)
+
+                group.addTask { @MainActor [weak self] in
+                    guard let self else { return }
+                    let progress = Progress(totalUnitCount: max(expectedEntryBytes, 1))
+                    aggregator.register(path: path, progress: progress, expectedBytes: expectedEntryBytes)
+
+                    let destination = try MLXModelStorageSupport.destinationFileURL(for: path, under: tempDir)
+                    if MLXModelDownloadSupport.canReuseExistingDownload(
+                        at: destination,
+                        expectedSize: expectedSize,
+                        fileManager: .default
+                    ) {
+                        let actualSize = Int64((try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+                        let delta = max(expectedEntryBytes, actualSize)
+                        aggregator.finish(path: path, deltaBytes: delta)
+                        VoxtLog.info("Download resume reused existing file: \(path)", verbose: true)
+                        return
+                    }
+
+                    VoxtLog.info("Download start: \(path) (size=\(expectedSize ?? -1))", verbose: true)
+                    try await self.downloadEntryWithRetry(
+                        repo: repoDescription,
+                        entryPath: path,
+                        tempDir: tempDir,
+                        progress: progress,
+                        baseURL: baseURL,
+                        bearerToken: bearerToken
+                    )
+                    VoxtLog.info("Download done: \(path)", verbose: true)
+
+                    let delta = max(expectedEntryBytes, max(progress.completedUnitCount, 0))
+                    aggregator.finish(path: path, deltaBytes: delta)
+                }
             }
 
-            try await downloadEntryWithRetry(
-                repo: repoID.description,
-                entryPath: entry.path,
-                tempDir: tempDir,
-                progress: progress,
-                baseURL: baseURL,
-                bearerToken: bearerToken
-            )
-            VoxtLog.info("Download done: \(entry.path)", verbose: true)
-            let delta = max(expectedEntryBytes, max(progress.completedUnitCount, 0))
-            completedBytes += max(delta, 0)
-            let finishedFiles = completedFiles + 1
-            let fraction = totalBytes > 0 ? Double(completedBytes) / Double(totalBytes) : 1
-            setDownloadingState(
-                progress: min(1, fraction),
-                completed: min(completedBytes, totalBytes),
-                total: totalBytes,
-                currentFile: nil,
-                completedFiles: finishedFiles,
-                totalFiles: totalFiles
-            )
-            VoxtLog.info(
-                "Download progress: files=\(finishedFiles)/\(totalFiles), bytes=\(min(completedBytes, totalBytes))/\(totalBytes)",
-                verbose: true
-            )
+            for _ in 0..<maxConcurrency { spawnNext() }
+            while try await group.next() != nil {
+                spawnNext()
+            }
         }
+
+        let finalSnap = aggregator.snapshot(inFlightBytesProvider: Self.inFlightBytes)
+        setDownloadingState(
+            progress: finalSnap.progress,
+            completed: finalSnap.completed,
+            total: finalSnap.total,
+            currentFile: nil,
+            completedFiles: finalSnap.completedFiles,
+            totalFiles: finalSnap.totalFiles
+        )
+        VoxtLog.info(
+            "Download progress: files=\(finalSnap.completedFiles)/\(totalFiles), bytes=\(finalSnap.completed)/\(totalBytes)",
+            verbose: true
+        )
 
         VoxtLog.info("Validating downloaded files...", verbose: true)
         try MLXModelDownloadSupport.validateDownloadedModel(
@@ -1143,6 +1147,62 @@ class MLXModelManager: ObservableObject {
         MLXModelStorageSupport.clearHubCache(
             for: repoID,
             rootDirectory: ModelStorageDirectoryManager.resolvedRootURL()
+        )
+    }
+}
+
+@MainActor
+private final class MLXParallelDownloadAggregator {
+    struct InFlight {
+        let progress: Progress
+        let expectedBytes: Int64
+        let startTime: Date
+    }
+
+    struct Snapshot {
+        let progress: Double
+        let completed: Int64
+        let total: Int64
+        let currentFile: String?
+        let completedFiles: Int
+        let totalFiles: Int
+    }
+
+    let totalBytes: Int64
+    let totalFiles: Int
+    private(set) var completedBytes: Int64 = 0
+    private(set) var completedFiles: Int = 0
+    private var inFlight: [String: InFlight] = [:]
+
+    init(totalBytes: Int64, totalFiles: Int) {
+        self.totalBytes = totalBytes
+        self.totalFiles = totalFiles
+    }
+
+    func register(path: String, progress: Progress, expectedBytes: Int64) {
+        inFlight[path] = InFlight(progress: progress, expectedBytes: expectedBytes, startTime: Date())
+    }
+
+    func finish(path: String, deltaBytes: Int64) {
+        completedBytes = min(completedBytes + max(deltaBytes, 0), totalBytes)
+        completedFiles = min(completedFiles + 1, totalFiles)
+        inFlight[path] = nil
+    }
+
+    func snapshot(inFlightBytesProvider: (Progress, Int64, Date) -> Int64) -> Snapshot {
+        let aggregateInFlight = inFlight.values.reduce(Int64(0)) { partial, item in
+            partial + inFlightBytesProvider(item.progress, item.expectedBytes, item.startTime)
+        }
+        let visibleCompleted = min(completedBytes + aggregateInFlight, totalBytes)
+        let fraction = totalBytes > 0 ? Double(visibleCompleted) / Double(totalBytes) : 0
+        let displayCurrentFile = completedFiles == totalFiles ? nil : inFlight.keys.sorted().first
+        return Snapshot(
+            progress: min(1, fraction),
+            completed: visibleCompleted,
+            total: totalBytes,
+            currentFile: displayCurrentFile,
+            completedFiles: completedFiles,
+            totalFiles: totalFiles
         )
     }
 }
