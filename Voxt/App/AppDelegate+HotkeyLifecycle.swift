@@ -247,6 +247,10 @@ extension AppDelegate {
     }
 
     func handleTranslationHotkeyDown() {
+        guard !HotkeyPreference.loadTranslation().isNone else {
+            VoxtLog.hotkey("Translation hotkey ignored: no shortcut assigned.")
+            return
+        }
         VoxtLog.info(
             "Translation hotkey invoked. mode=\(HotkeyPreference.loadTriggerMode().rawValue), isSessionActive=\(isSessionActive), isMeetingActive=\(meetingSessionCoordinator.isActive), pendingStart=\(pendingTranscriptionStartTask != nil)"
         )
@@ -294,6 +298,7 @@ extension AppDelegate {
     }
 
     func handleTranslationHotkeyUp() {
+        guard !HotkeyPreference.loadTranslation().isNone else { return }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         guard triggerMode == .longPress else { return }
         VoxtLog.hotkey(
@@ -315,6 +320,10 @@ extension AppDelegate {
     }
 
     func handleRewriteHotkeyDown() {
+        guard !HotkeyPreference.loadRewrite().isNone else {
+            VoxtLog.hotkey("Rewrite hotkey ignored: no shortcut assigned.")
+            return
+        }
         VoxtLog.info(
             "Rewrite hotkey invoked. mode=\(HotkeyPreference.loadTriggerMode().rawValue), isSessionActive=\(isSessionActive), isMeetingActive=\(meetingSessionCoordinator.isActive), pendingStart=\(pendingTranscriptionStartTask != nil)"
         )
@@ -342,6 +351,7 @@ extension AppDelegate {
     }
 
     func handleRewriteHotkeyUp() {
+        guard !HotkeyPreference.loadRewrite().isNone else { return }
         let triggerMode = HotkeyPreference.loadTriggerMode()
         guard triggerMode == .longPress else { return }
         VoxtLog.hotkey(

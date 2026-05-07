@@ -317,7 +317,7 @@ struct HotkeySettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(localized("Distinguish Left/Right Modifiers"))
                                 .foregroundStyle(.secondary)
-                            Text(localized("When enabled, Left Shift and Right Shift are treated as different shortcuts."))
+                            Text(localized("When enabled, Left and Right modifiers (Command, Shift, Option, Control) are treated as different shortcuts."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -344,12 +344,6 @@ struct HotkeySettingsView: View {
                         isPendingConfirmation: isPendingConfirmation(for: .transcription),
                         distinguishModifierSides: distinguishModifierSides,
                         onFocus: { beginRecording(.transcription) },
-                        onReset: {
-                            hotkeyBinding.wrappedValue = HotkeyPreference.defaultKeyCode
-                            modifierBinding.wrappedValue = HotkeyPreference.defaultModifiers
-                            sidedModifierBinding.wrappedValue = []
-                            hotkeyPreset = HotkeyPreference.Preset.custom.rawValue
-                        },
                         onCancelPending: discardPendingCapture,
                         onConfirmPending: confirmPendingCapture
                     )
@@ -361,9 +355,9 @@ struct HotkeySettingsView: View {
                         isPendingConfirmation: isPendingConfirmation(for: .translation),
                         distinguishModifierSides: distinguishModifierSides,
                         onFocus: { beginRecording(.translation) },
-                        onReset: {
-                            translationHotkeyBinding.wrappedValue = HotkeyPreference.defaultTranslationKeyCode
-                            translationModifierBinding.wrappedValue = HotkeyPreference.defaultTranslationModifiers
+                        onClear: {
+                            translationHotkeyBinding.wrappedValue = HotkeyPreference.Hotkey.none.keyCode
+                            translationModifierBinding.wrappedValue = HotkeyPreference.Hotkey.none.modifiers
                             translationSidedModifierBinding.wrappedValue = []
                             hotkeyPreset = HotkeyPreference.Preset.custom.rawValue
                         },
@@ -378,9 +372,9 @@ struct HotkeySettingsView: View {
                         isPendingConfirmation: isPendingConfirmation(for: .rewrite),
                         distinguishModifierSides: distinguishModifierSides,
                         onFocus: { beginRecording(.rewrite) },
-                        onReset: {
-                            rewriteHotkeyBinding.wrappedValue = HotkeyPreference.defaultRewriteKeyCode
-                            rewriteModifierBinding.wrappedValue = HotkeyPreference.defaultRewriteModifiers
+                        onClear: {
+                            rewriteHotkeyBinding.wrappedValue = HotkeyPreference.Hotkey.none.keyCode
+                            rewriteModifierBinding.wrappedValue = HotkeyPreference.Hotkey.none.modifiers
                             rewriteSidedModifierBinding.wrappedValue = []
                             hotkeyPreset = HotkeyPreference.Preset.custom.rawValue
                         },
@@ -396,12 +390,6 @@ struct HotkeySettingsView: View {
                             isPendingConfirmation: isPendingConfirmation(for: .meeting),
                             distinguishModifierSides: distinguishModifierSides,
                             onFocus: { beginRecording(.meeting) },
-                            onReset: {
-                                meetingHotkeyBinding.wrappedValue = HotkeyPreference.defaultMeetingKeyCode
-                                meetingModifierBinding.wrappedValue = HotkeyPreference.defaultMeetingModifiers
-                                meetingSidedModifierBinding.wrappedValue = []
-                                hotkeyPreset = HotkeyPreference.Preset.custom.rawValue
-                            },
                             onCancelPending: discardPendingCapture,
                             onConfirmPending: confirmPendingCapture
                         )
@@ -415,11 +403,6 @@ struct HotkeySettingsView: View {
                             isPendingConfirmation: isPendingConfirmation(for: .customPaste),
                             distinguishModifierSides: distinguishModifierSides,
                             onFocus: { beginRecording(.customPaste) },
-                            onReset: {
-                                customPasteHotkeyBinding.wrappedValue = HotkeyPreference.defaultCustomPasteKeyCode
-                                customPasteModifierBinding.wrappedValue = HotkeyPreference.defaultCustomPasteModifiers
-                                customPasteSidedModifierBinding.wrappedValue = []
-                            },
                             onCancelPending: discardPendingCapture,
                             onConfirmPending: confirmPendingCapture
                         )
@@ -447,13 +430,13 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if let conflict = hotkeyConflictMessage(for: currentTranslationHotkey) {
+                    if !currentTranslationHotkey.isNone, let conflict = hotkeyConflictMessage(for: currentTranslationHotkey) {
                         Text(localizedString("Translation shortcut: %@", conflict))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if let conflict = hotkeyConflictMessage(for: currentRewriteHotkey) {
+                    if !currentRewriteHotkey.isNone, let conflict = hotkeyConflictMessage(for: currentRewriteHotkey) {
                         Text(localizedString("Content rewrite shortcut: %@", conflict))
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -471,19 +454,19 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if currentHotkey == currentTranslationHotkey {
+                    if !currentTranslationHotkey.isNone, currentHotkey == currentTranslationHotkey {
                         Text(localized("Transcription and translation shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if currentHotkey == currentRewriteHotkey {
+                    if !currentRewriteHotkey.isNone, currentHotkey == currentRewriteHotkey {
                         Text(localized("Transcription and content rewrite shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if currentTranslationHotkey == currentRewriteHotkey {
+                    if !currentTranslationHotkey.isNone, !currentRewriteHotkey.isNone, currentTranslationHotkey == currentRewriteHotkey {
                         Text(localized("Translation and content rewrite shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -495,13 +478,13 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if meetingEnabled, currentTranslationHotkey == currentMeetingHotkey {
+                    if meetingEnabled, !currentTranslationHotkey.isNone, currentTranslationHotkey == currentMeetingHotkey {
                         Text(localized("Translation and meeting notes shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if meetingEnabled, currentRewriteHotkey == currentMeetingHotkey {
+                    if meetingEnabled, !currentRewriteHotkey.isNone, currentRewriteHotkey == currentMeetingHotkey {
                         Text(localized("Content rewrite and meeting notes shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -513,13 +496,13 @@ struct HotkeySettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    if customPasteHotkeyEnabled, currentTranslationHotkey == currentCustomPasteHotkey {
+                    if customPasteHotkeyEnabled, !currentTranslationHotkey.isNone, currentTranslationHotkey == currentCustomPasteHotkey {
                         Text(localized("Translation and custom paste shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
 
-                    if customPasteHotkeyEnabled, currentRewriteHotkey == currentCustomPasteHotkey {
+                    if customPasteHotkeyEnabled, !currentRewriteHotkey.isNone, currentRewriteHotkey == currentCustomPasteHotkey {
                         Text(localized("Content rewrite and custom paste shortcuts should be different."))
                             .font(.caption)
                             .foregroundStyle(.red)
