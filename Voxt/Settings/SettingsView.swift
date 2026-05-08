@@ -635,6 +635,12 @@ private struct SettingsSidebar: View {
                     .buttonStyle(SettingsSidebarItemButtonStyle(isActive: tab == selectedTab))
                 }
             } else {
+                Button(action: onReturnToRoot) {
+                    Label(settingsLocalized("Back"), systemImage: "chevron.left")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SettingsPillButtonStyle())
+
                 ForEach(visibleFeatureTabs) { tab in
                     Button {
                         onSelectFeatureTab(tab)
@@ -755,14 +761,6 @@ private struct SettingsSidebar: View {
                 .frame(maxWidth: .infinity)
                 .disabled(updateBadgeState.isTriggerDisabled)
                 .buttonStyle(SettingsStatusButtonStyle(tint: updateBadgeState.tintColor))
-            }
-
-            if sidebarMode == .feature {
-                Button(action: onReturnToRoot) {
-                    Label(settingsLocalized("Back"), systemImage: "chevron.left")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(SettingsPillButtonStyle())
             }
 
         }
