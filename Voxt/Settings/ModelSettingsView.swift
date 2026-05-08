@@ -222,7 +222,6 @@ struct ModelSettingsView: View {
             primaryUserLanguageCode: selectedUserLanguageCodes.first,
             isDownloadingModel: isDownloadingModel,
             isPausedModel: isPausedModel,
-            isAnotherModelDownloading: isAnotherModelDownloading,
             isDownloadingWhisperModel: isDownloadingWhisperModel,
             isPausedWhisperModel: isPausedWhisperModel,
             isAnotherWhisperModelDownloading: isAnotherWhisperModelDownloading,

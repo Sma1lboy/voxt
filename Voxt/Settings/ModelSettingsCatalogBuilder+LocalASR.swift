@@ -142,8 +142,7 @@ extension ModelCatalogBuilder {
             }
         }
         return ModelTableAction(
-            title: localizedModelCatalog("Install"),
-            isEnabled: !isAnotherModelDownloading(repo)
+            title: localizedModelCatalog("Install")
         ) {
             downloadModel(repo)
         }

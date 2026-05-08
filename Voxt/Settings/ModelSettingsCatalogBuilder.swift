@@ -22,7 +22,6 @@ struct ModelCatalogBuilder {
     let primaryUserLanguageCode: String?
     let isDownloadingModel: (String) -> Bool
     let isPausedModel: (String) -> Bool
-    let isAnotherModelDownloading: (String) -> Bool
     let isDownloadingWhisperModel: (String) -> Bool
     let isPausedWhisperModel: (String) -> Bool
     let isAnotherWhisperModelDownloading: (String) -> Bool

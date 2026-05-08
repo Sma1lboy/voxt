@@ -257,7 +257,7 @@ extension AppDelegate {
         let startDecision = MeetingStartPlanner.resolve(
             selectedEngine: transcriptionEngine,
             selectedMLXRepo: mlxModelManager.currentModelRepo,
-            activeMLXDownloadRepo: mlxModelManager.activeDownloadRepo,
+            activeMLXDownloadRepo: mlxModelManager.isDownloading(repo: mlxModelManager.currentModelRepo) ? mlxModelManager.currentModelRepo : nil,
             isSelectedMLXModelDownloaded: mlxModelManager.isModelDownloaded(repo: mlxModelManager.currentModelRepo),
             mlxModelState: mlxModelManager.state,
             selectedWhisperModelID: whisperModelManager.currentModelID,
