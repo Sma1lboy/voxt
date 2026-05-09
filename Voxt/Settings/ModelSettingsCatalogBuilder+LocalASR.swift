@@ -128,7 +128,7 @@ extension ModelCatalogBuilder {
         }
         if isDownloadingModel(repo) {
             return ModelTableAction(title: localizedModelCatalog("Pause")) {
-                mlxModelManager.pauseDownload()
+                pauseModelDownload(repo)
             }
         }
         if isPausedModel(repo) {
@@ -153,7 +153,7 @@ extension ModelCatalogBuilder {
         if isDownloadingModel(repo) {
             actions.append(
                 ModelTableAction(title: localizedModelCatalog("Cancel"), role: .destructive) {
-                    mlxModelManager.cancelDownload()
+                    cancelModelDownload(repo)
                 }
             )
         } else if isPausedModel(repo) {

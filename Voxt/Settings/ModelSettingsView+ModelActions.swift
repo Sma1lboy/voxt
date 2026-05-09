@@ -211,8 +211,8 @@ extension ModelSettingsView {
 
         if isDownloadingModel(repo) {
             return ModelDownloadPresentationSupport.downloadingActions(
-                onPause: { mlxModelManager.pauseDownload() },
-                onCancel: { mlxModelManager.cancelDownload() }
+                onPause: { mlxModelManager.pauseDownload(repo: repo) },
+                onCancel: { mlxModelManager.cancelDownload(repo: repo) }
             )
         }
 

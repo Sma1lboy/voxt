@@ -463,6 +463,64 @@ final class MLXModelManagerTests: XCTestCase {
         }
     }
 
+    func testDeleteModelForNonCurrentRepoClearsStoredPerRepoState() async throws {
+        try await withIsolatedModelStorageRoot { root in
+            let otherRepo = "mlx-community/parakeet-tdt-0.6b-v3"
+            try seedValidMLXModelDirectory(repo: otherRepo, root: root)
+
+            let manager = MLXModelManager(modelRepo: otherRepo)
+            XCTAssertEqual(manager.state(for: otherRepo), .downloaded)
+
+            manager.updateModel(repo: MLXModelManager.defaultModelRepo)
+            XCTAssertEqual(manager.state(for: otherRepo), .downloaded)
+
+            manager.deleteModel(repo: otherRepo)
+
+            XCTAssertEqual(manager.state(for: otherRepo), .notDownloaded)
+            XCTAssertNil(manager.pausedStatusMessage(for: otherRepo))
+        }
+    }
+
+    func testRefreshStorageRootClearsStoredPerRepoState() async throws {
+        let defaults = UserDefaults.standard
+        let previousPath = defaults.string(forKey: AppPreferenceKey.modelStorageRootPath)
+        let previousBookmark = defaults.data(forKey: AppPreferenceKey.modelStorageRootBookmark)
+
+        try await withIsolatedModelStorageRoot { originalRoot in
+            let otherRepo = "mlx-community/parakeet-tdt-0.6b-v3"
+            try seedValidMLXModelDirectory(repo: otherRepo, root: originalRoot)
+
+            let manager = MLXModelManager(modelRepo: otherRepo)
+            XCTAssertEqual(manager.state(for: otherRepo), .downloaded)
+
+            manager.updateModel(repo: MLXModelManager.defaultModelRepo)
+            XCTAssertEqual(manager.state(for: otherRepo), .downloaded)
+
+            let newRoot = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            defaults.set(newRoot.path, forKey: AppPreferenceKey.modelStorageRootPath)
+            defaults.removeObject(forKey: AppPreferenceKey.modelStorageRootBookmark)
+            defer {
+                if let previousPath {
+                    defaults.set(previousPath, forKey: AppPreferenceKey.modelStorageRootPath)
+                } else {
+                    defaults.removeObject(forKey: AppPreferenceKey.modelStorageRootPath)
+                }
+                if let previousBookmark {
+                    defaults.set(previousBookmark, forKey: AppPreferenceKey.modelStorageRootBookmark)
+                } else {
+                    defaults.removeObject(forKey: AppPreferenceKey.modelStorageRootBookmark)
+                }
+                try? FileManager.default.removeItem(at: newRoot)
+            }
+
+            manager.refreshStorageRoot()
+
+            XCTAssertEqual(manager.state(for: otherRepo), .notDownloaded)
+            XCTAssertNil(manager.pausedStatusMessage(for: otherRepo))
+        }
+    }
+
     private func withIsolatedModelStorageRoot<T>(_ body: (URL) throws -> T) rethrows -> T {
         let defaults = UserDefaults.standard
         let previousPath = defaults.string(forKey: AppPreferenceKey.modelStorageRootPath)

@@ -32,6 +32,7 @@ struct ModelCatalogBuilder {
     let isUninstallingWhisperModel: (String) -> Bool
     let isUninstallingCustomLLM: (String) -> Bool
     let downloadModel: (String) -> Void
+    let pauseModelDownload: (String) -> Void
     let cancelModelDownload: (String) -> Void
     let deleteModel: (String) -> Void
     let openMLXModelDirectory: (String) -> Void

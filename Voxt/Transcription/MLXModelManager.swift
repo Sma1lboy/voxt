@@ -200,6 +200,7 @@ class MLXModelManager: ObservableObject {
             }
         }
         invalidateLocalCache(for: canonicalRepo)
+        clearPerRepoState(for: canonicalRepo)
     }
 
     func downloadModel(repo: String) async {
@@ -329,24 +330,21 @@ class MLXModelManager: ObservableObject {
     }
 
     func state(for repo: String) -> ModelState {
-        let canonicalRepo = Self.canonicalModelRepo(repo)
-        if let existing = stateByRepo[canonicalRepo] {
-            return existing
-        }
-        if canonicalRepo == modelRepo {
-            return state
-        }
-        if isModelDownloaded(repo: canonicalRepo) {
-            return .downloaded
-        }
-        if hasResumableDownload(repo: canonicalRepo) {
-            return .paused(progress: 0, completed: 0, total: 0, currentFile: nil, completedFiles: 0, totalFiles: 0)
-        }
-        return .notDownloaded
+        MLXModelPerRepoStateSupport.resolvedState(
+            for: repo,
+            currentRepo: modelRepo,
+            currentState: state,
+            storedStates: stateByRepo,
+            isDownloaded: { isModelDownloaded(repo: $0) },
+            hasResumableDownload: { hasResumableDownload(repo: $0) }
+        )
     }
 
     func pausedStatusMessage(for repo: String) -> String? {
-        pausedStatusMessageByRepo[Self.canonicalModelRepo(repo)]
+        MLXModelPerRepoStateSupport.pausedStatusMessage(
+            for: repo,
+            storedMessages: pausedStatusMessageByRepo
+        )
     }
 
     func isDownloading(repo: String) -> Bool {
@@ -361,35 +359,54 @@ class MLXModelManager: ObservableObject {
         return false
     }
 
-    private func setState(_ newState: ModelState, for repo: String) {
-        let canonicalRepo = Self.canonicalModelRepo(repo)
-        if stateByRepo[canonicalRepo] != newState {
-            stateByRepo[canonicalRepo] = newState
-        }
-        if canonicalRepo == modelRepo, state != newState {
-            state = newState
+    func isDownloadOperationActive(repo: String) -> Bool {
+        switch state(for: repo) {
+        case .downloading, .paused:
+            return true
+        default:
+            return false
         }
     }
 
+    private func setState(_ newState: ModelState, for repo: String) {
+        MLXModelPerRepoStateSupport.applyState(
+            newState,
+            for: repo,
+            currentRepo: modelRepo,
+            currentState: &state,
+            storedStates: &stateByRepo
+        )
+    }
+
     private func setPausedStatusMessage(_ message: String?, for repo: String) {
-        let canonicalRepo = Self.canonicalModelRepo(repo)
-        let existing = pausedStatusMessageByRepo[canonicalRepo]
-        if existing != message {
-            if let message {
-                pausedStatusMessageByRepo[canonicalRepo] = message
-            } else {
-                pausedStatusMessageByRepo.removeValue(forKey: canonicalRepo)
-            }
-        }
-        if canonicalRepo == modelRepo, pausedStatusMessage != message {
-            pausedStatusMessage = message
-        }
+        MLXModelPerRepoStateSupport.applyPausedStatusMessage(
+            message,
+            for: repo,
+            currentRepo: modelRepo,
+            currentMessage: &pausedStatusMessage,
+            storedMessages: &pausedStatusMessageByRepo
+        )
+    }
+
+    private func clearPerRepoState(for repo: String) {
+        MLXModelPerRepoStateSupport.clearState(
+            for: repo,
+            currentRepo: modelRepo,
+            currentPausedStatusMessage: &pausedStatusMessage,
+            storedStates: &stateByRepo,
+            storedMessages: &pausedStatusMessageByRepo
+        )
     }
 
     func refreshStorageRoot() {
         downloadedStateByRepo.removeAll()
         downloadedStateCachePrimed = false
         localSizeTextByRepo.removeAll()
+        MLXModelPerRepoStateSupport.resetStorageRootState(
+            currentPausedStatusMessage: &pausedStatusMessage,
+            storedStates: &stateByRepo,
+            storedMessages: &pausedStatusMessageByRepo
+        )
         checkExistingModel()
     }
 
